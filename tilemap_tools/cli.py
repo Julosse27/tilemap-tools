@@ -48,8 +48,8 @@ def main():
     # Créer un modèle
     create_mdl_parser = create_subparser.add_parser("modele", help='Pour créer un modèle.')
     create_mdl_parser.add_argument('taille', type=int, help="La taille d'un côté du modèle.")
+    create_mdl_parser.add_argument('output', required=False, type=str, help='Fichier de sortie', default="mon_modèle")
     create_mdl_parser.add_argument('-n', '--nb-tuiles', type=int, help="Le nombre de tuiles sur le modèle(influe sur la génération de tilemap)", choices=[3, 4], default= 3)
-    create_mdl_parser.add_argument('-o', '--output', type=str, help='Fichier de sortie', default="modèle")
     create_mdl_parser.add_argument('-c', "--couleurs", nargs="+", action=Check_colors, help="Les couleurs que tu voudrait utiliser (au moins 2 avec leurs codes hex: comme FFFFFF ou 06dd2e)", metavar="HEX", default=None)
 
     view_parser = subparsers.add_parser('view', help="Permet de consulter un fichier de modèle ou de tilemap.")

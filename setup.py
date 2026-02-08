@@ -8,11 +8,13 @@ setup(
     version='0.1.0',
 
     author='Julosse',
-    author_email="lateurte.jules@gmail.com",
+    author_email="julosse27110@gmail.com",
     
     description='Outils pour créer et manipuler des tilemaps',
     long_description=long_description,
     long_description_content_type="text/markdown",
+
+    url='https://github.com/Julosse27/tilemap-tools',
 
     packages=find_packages(),
 
@@ -45,7 +47,6 @@ setup(
     keywords='tilemap game-dev pixel-art pyxel',
     
     project_urls={
-        'Bug Reports': 'https://github.com/votre-nom/tilemap-tools/issues',
-        'Source': 'https://github.com/votre-nom/tilemap-tools',
+        'Source': 'https://github.com/Julosse27/tilemap-tools',
     },
 )
