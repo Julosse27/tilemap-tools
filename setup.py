@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name='tilemap-tools',
-    version='0.1.0',
+    version='0.1.4',
 
     author='Julosse',
     author_email="julosse27110@gmail.com",
@@ -17,6 +17,7 @@ setup(
     url='https://github.com/Julosse27/tilemap-tools',
 
     packages=find_packages(),
+    include_package_data=True,
 
     python_requires='>=3.8',
 

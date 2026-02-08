@@ -1,10 +1,16 @@
 """Point d'entrée principal pour la CLI tilemap"""
 import argparse
 import sys
-from .create_modele import main as create_main
+from .create_modele import main as create_mdl_main
 from .view import main as view_main
-from os import getcwd, listdir, remove
+from os import getcwd, listdir, remove, makedirs
 from os.path import exists, join, dirname
+
+dossier = join(dirname(__file__), "pyxres_bin")
+
+# Créez le dossier s'il n'existe pas
+if not exists(dossier):
+    makedirs(dossier)
 
 class Check_colors(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
@@ -48,7 +54,7 @@ def main():
     # Créer un modèle
     create_mdl_parser = create_subparser.add_parser("modele", help='Pour créer un modèle.')
     create_mdl_parser.add_argument('taille', type=int, help="La taille d'un côté du modèle.")
-    create_mdl_parser.add_argument('output', required=False, type=str, help='Fichier de sortie', default="mon_modèle")
+    create_mdl_parser.add_argument('output', type=str, help='Fichier de sortie', default="mon_modèle")
     create_mdl_parser.add_argument('-n', '--nb-tuiles', type=int, help="Le nombre de tuiles sur le modèle(influe sur la génération de tilemap)", choices=[3, 4], default= 3)
     create_mdl_parser.add_argument('-c', "--couleurs", nargs="+", action=Check_colors, help="Les couleurs que tu voudrait utiliser (au moins 2 avec leurs codes hex: comme FFFFFF ou 06dd2e)", metavar="HEX", default=None)
 
@@ -61,8 +67,11 @@ def main():
     args = parser.parse_args()
     
     # Exécuter la commande appropriée
-    if args.command == 'create_model':
-        create_main(args.taille, args.nb_tuiles, args.output, args.couleurs, dossier_commande)
+    if args.command == 'create':
+        if args.type == "modele":
+            create_mdl_main(args.taille, args.nb_tuiles, args.output, args.couleurs, dossier_commande)
+        else:
+            create_parser.print_help()
     elif args.command == 'view':
         view_main(args.fichier, dossier_commande)
     elif args.command == 'clean':
