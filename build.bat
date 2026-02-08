@@ -22,11 +22,33 @@ if %ERRORLEVEL% EQU 0 (
     if "%choice%"=="1" (
         echo Upload vers TestPyPI...
         python -m twine upload --repository testpypi dist/*
+
+        if %ERRORLEVEL% EQU 0(
+            echo.
+            echo Ok - Upload réussi sir TestPyPI !
+            echo.
+            echo Instalation du package dans 2 minutes(temps pour TestPyPI d'ajouter la nouvelle version)
+            ping 127.0.0.1 -n 121 > nul
+            pip uninstall tilemap-tools
+
+            pip install -i https://test.pypi.org/simple/ tilemap-tools
+        )
     ) else if "%choice%"=="2" (
         set /p confirm="Confirmer upload vers PyPI ? (oui/non): "
         if "%confirm%"=="oui" (
             echo Upload vers PyPI...
             python -m twine upload dist/*
+        )
+
+        if %ERRORLEVEL% EQU 0(
+            echo.
+            echo Ok - Upload réussi sir PyPI !
+            echo.
+            echo Instalation du package dans 2 minutes(temps pour PyPI d'ajouter la nouvelle version)
+            ping 127.0.0.1 -n 121 > nul
+            pip uninstall tilemap-tools
+
+            pip install tilemap-tools
         )
     ) else (
         echo Package pret dans dist/
