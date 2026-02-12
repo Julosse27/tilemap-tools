@@ -34,3 +34,6 @@ ENV/
 # OS
 .DS_Store
 Thumbs.db
+
+# Fichiers temporaires
+tilemap_tools/pyxres_bin/

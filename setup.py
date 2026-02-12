@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name='tilemap-tools',
-    version='0.1.4',
+    version='0.1.5',
 
     author='Julosse',
     author_email="julosse27110@gmail.com",
@@ -13,8 +13,6 @@ setup(
     description='Outils pour créer et manipuler des tilemaps',
     long_description=long_description,
     long_description_content_type="text/markdown",
-
-    url='https://github.com/Julosse27/tilemap-tools',
 
     packages=find_packages(),
     include_package_data=True,
