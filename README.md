@@ -12,9 +12,9 @@ pip install tilemap-tools
  - ✨ Créer des modèles de tilemaps interactifs.
  - 🎨 Des palettes max de 16 couleurs pour un modèle.
  - 👁️ Visualisation et modification avec des grilles interactives
- - 👾 Création de tilemaps (à terminer) avec un systrème complet de création de platformes
- - 👨‍💻 Utilisation facile dans un programme utilisant pyxel (a faire)
- - 💻 Modification à tout moment (encore à implémenter)
+ - 👾 Création de tilemaps (à terminer) avec un systrème complet de création de platformes ou de modèles tierces
+ - 👨‍💻 Utilisation facile dans un programme (a faire) utilisant le module pyxel (implémenté par ce module) 
+ - 💻 Modification à tout moment
 
 ## Utilisation
 

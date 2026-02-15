@@ -37,3 +37,7 @@ Thumbs.db
 
 # Fichiers temporaires
 tilemap_tools/pyxres_bin/
+
+# Tests
+*.mdl
+*.map
