@@ -68,6 +68,7 @@ def main():
 
     # Créer un fichier de tilemap
     create_map_parser = create_subparser.add_parser("map", help="Pour créer un fichier de tilemap.")
+    create_map_parser.add_argument('output', type=str, help="Le nom du fichier qui sera créé.")
     create_map_parser.add_argument('modeles', nargs='+', action=Check_modeles, help="Les fichiers que tu veut utiliser pour construire ta tilemap.", metavar='*.mdl')
 
     view_parser = subparsers.add_parser('view', help="Permet de consulter un fichier de modèle ou de tilemap.")
@@ -86,7 +87,7 @@ def main():
         if args.type == "modele":
             mdl_create(args.taille, args.nb_tuiles, args.output, args.couleurs, dossier_commande)
         elif args.type == "map":
-            map_create(dossier_commande, args.modeles)
+            map_create(dossier_commande, args.modeles, args.output)
         else:
             create_parser.print_help()
     elif args.command == 'view':

@@ -6,6 +6,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 setup(
     name='tilemap-tools',
     version='0.1.5',
+    license= "MIT License",
 
     author='Julosse',
     author_email="julosse27110@gmail.com",
