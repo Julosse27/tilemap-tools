@@ -4,10 +4,16 @@ Ce fichier gére toutes les implémentations de base du module `tilemap-tools`
 
 
 class Tilemap:
+    """
+    Tjr en construction
+    """
     def __init__(self) -> None:
         pass
 
 class TilemapModel:
+    """
+    Tjr en construction
+    """
     def __init__(self) -> None:
         pass
 
