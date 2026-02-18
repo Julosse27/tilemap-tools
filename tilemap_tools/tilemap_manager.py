@@ -59,9 +59,9 @@ def map_create(dossier:str, noms_fichiers_mdl:list[str], nom_fichier:str):
 
     tk.Label(frame_principale, text=f"Cette image sera ce que contiendra le fichier\n{nom_fichier}.map lors de son enregistrement.\nSélectionez des tuiles puis placez les sur cette fenètre\npour le construire.", font=('Arial', 15), bg=bg, justify=tk.CENTER).place(relx=0.7,rely=0.5, anchor=tk.CENTER)
 
-    selector = Tilemap_Selector(root)
+    selector = Selecteur_tilemap(root)
 
-    dessinateur = Tilemap_Dessinator(frame_principale, selector)
+    dessinateur = Dessinateur_tilemap(frame_principale, selector)
 
     for i, images in enumerate(liste_tiles):
         tk.Label(root, text=f"Voici le contenu du fichier {noms_fichiers_mdl[i]}", font=("Arial", 9, "bold"), bg=bg).pack()
@@ -124,10 +124,11 @@ def map_create(dossier:str, noms_fichiers_mdl:list[str], nom_fichier:str):
     root.mainloop()
     dessinateur.stop_thread()
 
-class Tilemap_Dessinator:
-    def __init__(self, frame: tk.Frame, selector:Tilemap_Selector) -> None:
+class Dessinateur_tilemap:
+    def __init__(self, frame: tk.Frame, selector:Selecteur_tilemap) -> None:
         self.source_img = Image_PIL.new('RGB', (512, 512))
 
+        self.selector = selector
         bg = frame.cget("bg")
 
         self.variations_toggle = True
@@ -144,7 +145,7 @@ class Tilemap_Dessinator:
 
         photo = ImageTk.PhotoImage(self.get_display_img())
 
-        self.canva = tk.Canvas(frame_dessin, width= 256, height=256, highlightthickness=0, bd=0)
+        self.canva = tk.Canvas(frame_dessin, width= 256, height=256, highlightthickness=0, bd=0, cursor="none")
         self.image_id = self.canva.create_image(0, 0, anchor = tk.NW, image=photo)
         self.canva.image = photo # pyright: ignore[reportAttributeAccessIssue]
 
@@ -161,8 +162,8 @@ class Tilemap_Dessinator:
             scrollregion=(0, 0, 2048, 2048)  # Taille réelle du canva
         )
 
-        self.canva.bind("<Button-1>", self.click(selector))
-        self.canva.bind("<Motion>", self.hover(selector))
+        self.canva.bind("<Button-1>", self.click)
+        self.canva.bind("<Motion>", self.hover)
         self.canva.bind("<Leave>", self.leave)
 
         h_scroll.pack(fill=tk.X, expand=True)
@@ -175,12 +176,28 @@ class Tilemap_Dessinator:
     def get_display_img(self):
         return self.source_img.resize((2048, 2048), Image_PIL.Resampling.NEAREST)
     
-    def set_new_img(self):
-        image = self.get_display_img()
-        photo = ImageTk.PhotoImage(image)
+    def set_new_img(self, x:int, y:int):
+        """
+        Met à jour l'image principale du fichier tilemap et sa représentation.
+        
+        :param x: L'ordonnée x du centre de l'image (taille réelle)
+        :type x: int
+        :param y: L'absice y du centre de l'image (taille réelle)
+        :type y: int
+        """
+        tuile = self.selector.get_tuile()
 
-        self.canva.itemconfig(self.image_id, image=photo)
-        self.canva.image = photo # pyright: ignore[reportAttributeAccessIssue]
+        if tuile != None:
+            x -= tuile.width // 2
+            y -= tuile.height // 2
+            print(x, y)
+            self.source_img.paste(tuile, (x, y))
+
+            image = self.get_display_img()
+            photo = ImageTk.PhotoImage(image)
+
+            self.canva.itemconfig(self.image_id, image=photo)
+            self.canva.image = photo # pyright: ignore[reportAttributeAccessIssue]
 
     def variation_alpha(self):
         if self._stop_thread:
@@ -226,31 +243,44 @@ class Tilemap_Dessinator:
         else:
             pixel_y = y + 4 - reste_y
 
-        self.canva.create_image(pixel_x, pixel_y, anchor = tk.CENTER, image=photo, tags="fantome")
+        pixel_x -= width//2*4
+        pixel_y -= height//2*4
+
+        self.canva.create_image(pixel_x, pixel_y, anchor = tk.NW, image=photo, tags="fantome")
 
         self.canva.image_apercu = photo # pyright: ignore[reportAttributeAccessIssue]
 
     def stop_thread(self):
         self._stop_thread = True
 
-    def hover(self, selector:Tilemap_Selector):
-        def callback(event:tk.Event):
-            tuile = selector.get_tuile()
-            if tuile != None:
-                x = self.canva.canvasx(event.x)
-                y = self.canva.canvasy(event.y)
-                self.apercu(x, y, tuile)
-        return callback
+    def hover(self, event:tk.Event):
+        tuile = self.selector.get_tuile()
+        if tuile != None:
+            x = self.canva.canvasx(event.x)
+            y = self.canva.canvasy(event.y)
+            self.apercu(x, y, tuile)
     
     def leave(self, event):
         self.canva.delete("fantome")
     
-    def click(self, selector:Tilemap_Selector):
-        def callback(event:tk.Event):
-            pass
-        return callback
+    def click(self, event:tk.Event):
 
-class Tilemap_Selector:
+        x_canva = int(self.canva.canvasx(event.x))
+        y_canva = int(self.canva.canvasy(event.y))
+
+        # Compression des coordonnées
+        if x_canva % 4 < 2:
+            x = x_canva // 4
+        else:
+            x = x_canva // 4 + 1
+        if y_canva % 4 < 2:
+            y = y_canva // 4
+        else:
+            y = y_canva // 4 + 1
+
+        self.set_new_img(x, y) # Met à jour l'image principale au niveau du clic
+        
+class Selecteur_tilemap:
     def __init__(self, root) -> None:
         self.B1 = False
         self.tuile = (None, None)

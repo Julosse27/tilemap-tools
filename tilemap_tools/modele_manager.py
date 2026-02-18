@@ -243,7 +243,7 @@ def mdl_modif(file:str, dossier:str):
     nom_fichier_temp = f'{join(dirname(__file__), "pyxres_bin", f"bin_{int(time() * 10)}")}'
 
     with open(join(dossier, file + ".mdl"), "rb") as f:
-        liste = f.read().split(b",")
+        liste = f.read().split(b",,")
         img_bytes = liste[0]
         taille = int(liste[1])
         nb = int(liste[2])
@@ -307,7 +307,7 @@ def mdl_modif(file:str, dossier:str):
     with open(nom_fichier_temp + ".png", "rb") as u:
         img_png = u.read()
     with open(join(dossier, file + ".mdl"), "wb") as f:
-        f.write(img_png + f",{taille},{nb},{couleurs}".encode())
+        f.write(img_png + f",,{taille},,{nb},,{couleurs}".encode())
     remove(nom_fichier_temp + ".png")
     remove(nom_fichier_temp + ".pyxres")
     remove(nom_fichier_temp + ".pyxpal")
