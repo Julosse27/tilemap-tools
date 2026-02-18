@@ -36,6 +36,13 @@ class Check_modeles(argparse.Action):
         
         setattr(namespace, self.dest, values)
 
+class Check_taille(argparse.Action):
+    def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values, option_string: str | None = None) -> None:
+        if int(values) > 32: # pyright: ignore[reportArgumentType]
+            parser.error("Vous ne pouvez pas faire un modèle avec des tiles plus grande que 32 pixels.")
+        
+        setattr(namespace, self.dest, values)
+
 class Check_fichier(argparse.Action):
     def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values, option_string: str | None = None) -> None:
         for name in [".mdl", ".map"]:
@@ -61,7 +68,7 @@ def main():
 
     # Créer un modèle
     create_mdl_parser = create_subparser.add_parser("modele", help='Pour créer un modèle.')
-    create_mdl_parser.add_argument('taille', type=int, help="La taille d'un côté du modèle.")
+    create_mdl_parser.add_argument('taille', type=int, action=Check_taille, help="La taille d'un côté du modèle.")
     create_mdl_parser.add_argument('output', type=str, help='Nom du fichier créé.')
     create_mdl_parser.add_argument('-n', '--nb-tuiles', type=int, help="Le nombre de tuiles sur le modèle(influe sur la génération de tilemap)", choices=[3, 4], default= 3)
     create_mdl_parser.add_argument('-c', "--couleurs", nargs="+", action=Check_colors, help="Les couleurs que tu voudrait utiliser (au moins 2 avec leurs codes hex: comme FFFFFF ou 06dd2e)", metavar="HEX", default=None)
