@@ -5,8 +5,9 @@ from os import remove
 from os.path import dirname, join, exists, abspath
 from time import time, sleep
 from pyxel import load, init, images, colors as col, Image, save, load_pal
-from PIL import Image as Image_PIL, ImageTk, ImageDraw
+from PIL import Image as Image_PIL, ImageTk
 import tkinter as tk
+from threading import Thread
 
 # Stucture d'un fichier en .map
 # Séparateurs possibles pour ne pas modifier l'image: ()&!,-
@@ -21,10 +22,10 @@ def map_create(dossier:str, noms_fichiers_mdl:list[str], nom_fichier:str):
 
     bg = "#808254"
 
-    liste_tiles: list[list[tuple[Any, int, int, int]]] = []
+    liste_tiles: list[list[tuple[Image_PIL.Image, int, int, int]]] = []
     for fichier_mdl in noms_fichiers_mdl:
         with open(join(dossier, fichier_mdl + ".mdl"), "rb") as f:
-            liste = f.read().split(b",")
+            liste = f.read().split(b",,")
             img = liste[0]
             taille = int(liste[1])
             nb = int(liste[2])
@@ -47,22 +48,21 @@ def map_create(dossier:str, noms_fichiers_mdl:list[str], nom_fichier:str):
 
     root = tk.Tk() # Créer une fenètre avec tkinter
     root.title("Création de tilemaps") # Définir le titre de la fenètre
-    root.geometry("1000x900") # Définir la taille de la fenètre
+    root.geometry("1000x650") # Définir la taille de la fenètre
     root.configure(bg= bg) # Mettre un background
     # Permet d'équilibrer la fenètre pour ne pas avoir un élément qui prend plus de place qu'un autre.
 
-    tk.Label(root, text=f"Créez vottre fichier {nom_fichier}\navec les éléments que vous avez demandé", font=('Arial', 15, 'bold'), bg=bg).pack()
+    tk.Label(root, text=f"Créez vottre fichier {nom_fichier}.map avec les éléments que vous avez demandé", font=('Arial', 15, 'bold'), bg=bg).pack()
 
-    frame = tk.Frame(root, width=1000, height=256, bg=bg)
-    frame.pack()
+    frame_principale = tk.Frame(root, width=1000, height=271, bg=bg)
+    frame_principale.pack()
 
-    canva_principal = tk.Canvas(frame, width= 256, height=256, highlightthickness=0, bd=0)
+    tk.Label(frame_principale, text=f"Cette image sera ce que contiendra le fichier\n{nom_fichier}.map lors de son enregistrement.\nSélectionez des tuiles puis placez les sur cette fenètre\npour le construire.", font=('Arial', 15), bg=bg, justify=tk.CENTER).place(relx=0.7,rely=0.5, anchor=tk.CENTER)
 
-    canva_principal.place(relx=0.3, rely=0, anchor=tk.N)
+    selector = Tilemap_Selector(root)
 
-    tk.Label(frame, text=f"Cette image sera ce que contiendra le fichier\n{nom_fichier} lors de son enregistrement.\nSélectionez des tuiles puis placez les sur cette fenètre\npour le construire.", font=('Arial', 15), bg=bg, justify=tk.CENTER).place(relx=0.7,rely=0.5, anchor=tk.CENTER)
+    dessinateur = Tilemap_Dessinator(frame_principale, selector)
 
-    selector = TilemapSelector(root)
     for i, images in enumerate(liste_tiles):
         tk.Label(root, text=f"Voici le contenu du fichier {noms_fichiers_mdl[i]}", font=("Arial", 9, "bold"), bg=bg).pack()
         canva = tk.Canvas(root, bg=bg, height= 90, width= 1000, highlightthickness=0, bd=0)
@@ -72,6 +72,7 @@ def map_create(dossier:str, noms_fichiers_mdl:list[str], nom_fichier:str):
         debut = 500 - (longeur_ligne // 2)
 
         canva.photos_list = getattr(canva, 'photos_list', []) # pyright: ignore[reportAttributeAccessIssue]
+        canva.img_list = getattr(canva, 'img_list', []) # pyright: ignore[reportAttributeAccessIssue]
         for i, elements in enumerate(images):
             img, tile_x, tile_y, nb = elements
 
@@ -96,7 +97,7 @@ def map_create(dossier:str, noms_fichiers_mdl:list[str], nom_fichier:str):
                 y_position = None
 
             if (tile_x == 0 or tile_x == nb - 1) and (tile_y == 0 or tile_y == nb - 1):
-                nom = f"coin {y_position}\n - {x_position}"
+                nom = f"coin en {y_position}\nà {x_position}"
             elif tile_x == 0 or tile_x == nb - 1 or tile_y == 0 or tile_y == nb - 1:
                 if x_position:
                     nom = f"{x_position}"
@@ -109,9 +110,10 @@ def map_create(dossier:str, noms_fichiers_mdl:list[str], nom_fichier:str):
 
             nom = nom.capitalize()
 
-            canva.create_text(debut + i*décallage, 53, anchor=tk.NW, text=nom, font=("Arial", 7), justify=tk.CENTER, tags="TEXT")
-            
+            canva.create_text(debut + i*décallage + 25, 53 + 5*len(nom.splitlines()), anchor=tk.CENTER, text=nom, font=("Arial", 7), justify=tk.CENTER, tags="TEXT")
+
             canva.photos_list.append(photo) # pyright: ignore[reportAttributeAccessIssue]
+            canva.img_list.append(img) # pyright: ignore[reportAttributeAccessIssue]
 
         canva.bind("<B1-Motion>", selector.hover)
         canva.bind("<Button-1>", selector.click)
@@ -120,21 +122,150 @@ def map_create(dossier:str, noms_fichiers_mdl:list[str], nom_fichier:str):
         canva.pack()
 
     root.mainloop()
+    dessinateur.stop_thread()
 
-class TilemapSelector:
+class Tilemap_Dessinator:
+    def __init__(self, frame: tk.Frame, selector:Tilemap_Selector) -> None:
+        self.source_img = Image_PIL.new('RGB', (512, 512))
+
+        bg = frame.cget("bg")
+
+        self.variations_toggle = True
+        self._stop_thread = False
+
+        frame_dessin = tk.Frame(frame, bg=bg)
+        frame_dessin.place(relx=0.25, rely=0, anchor=tk.N)
+
+        self.tile_img = None
+
+        self.alpha = 132
+        self._sens_alpha = -2
+        self._limites = {"bas":100, "haut":164}
+
+        photo = ImageTk.PhotoImage(self.get_display_img())
+
+        self.canva = tk.Canvas(frame_dessin, width= 256, height=256, highlightthickness=0, bd=0)
+        self.image_id = self.canva.create_image(0, 0, anchor = tk.NW, image=photo)
+        self.canva.image = photo # pyright: ignore[reportAttributeAccessIssue]
+
+        frame_h = tk.Frame(frame_dessin, width=256, height=15)
+        frame_h.pack_propagate(False)
+        h_scroll = tk.Scrollbar(frame_h, orient=tk.HORIZONTAL, command=self.canva.xview, bg=bg)
+        frame_v = tk.Frame(frame_dessin, height=256, width=15)
+        frame_v.pack_propagate(False)
+        v_scroll = tk.Scrollbar(frame_v, orient=tk.VERTICAL, command=self.canva.yview, bg=bg)
+        
+        self.canva.configure(
+            xscrollcommand=h_scroll.set,
+            yscrollcommand=v_scroll.set,
+            scrollregion=(0, 0, 2048, 2048)  # Taille réelle du canva
+        )
+
+        self.canva.bind("<Button-1>", self.click(selector))
+        self.canva.bind("<Motion>", self.hover(selector))
+        self.canva.bind("<Leave>", self.leave)
+
+        h_scroll.pack(fill=tk.X, expand=True)
+        v_scroll.pack(fill=tk.Y, expand=True)
+        frame_h.pack(side=tk.BOTTOM, anchor=tk.SW)
+        frame_v.pack(side=tk.RIGHT)
+        self.canva.pack(side=tk.LEFT)
+        self.variation_alpha()
+
+    def get_display_img(self):
+        return self.source_img.resize((2048, 2048), Image_PIL.Resampling.NEAREST)
+    
+    def set_new_img(self):
+        image = self.get_display_img()
+        photo = ImageTk.PhotoImage(image)
+
+        self.canva.itemconfig(self.image_id, image=photo)
+        self.canva.image = photo # pyright: ignore[reportAttributeAccessIssue]
+
+    def variation_alpha(self):
+        if self._stop_thread:
+            return
+
+        if self.variations_toggle:
+            if self.alpha <= self._limites["bas"]:
+                self._sens_alpha = 2
+            elif self.alpha >= self._limites["haut"]:
+                self._sens_alpha = -2
+            
+            self.alpha += self._sens_alpha
+
+            if self.tile_img != None:
+                self.tile_img.putalpha(self.alpha)
+
+                photo = ImageTk.PhotoImage(self.tile_img)
+
+                self.canva.itemconfig("fantome", image=photo)
+                self.canva.image_apercu = photo # pyright: ignore[reportAttributeAccessIssue]
+        else:
+            self.alpha = 132
+                
+        self.canva.after(33, self.variation_alpha)
+
+    def apercu(self, x:int, y:int, tile_img: Image_PIL.Image):
+        self.canva.delete("fantome")
+        width, height = tile_img.size
+        self.tile_img = tile_img.convert('RGBA').resize((width * 4, height * 4), Image_PIL.Resampling.NEAREST)
+        self.tile_img.putalpha(self.alpha)
+
+        photo = ImageTk.PhotoImage(self.tile_img)
+        
+        reste_x = x % 4
+        if reste_x < 2:
+            pixel_x = x - reste_x
+        else:
+            pixel_x = x + 4 - reste_x
+        
+        reste_y = y % 4
+        if reste_y < 2:
+            pixel_y = y - reste_y
+        else:
+            pixel_y = y + 4 - reste_y
+
+        self.canva.create_image(pixel_x, pixel_y, anchor = tk.CENTER, image=photo, tags="fantome")
+
+        self.canva.image_apercu = photo # pyright: ignore[reportAttributeAccessIssue]
+
+    def stop_thread(self):
+        self._stop_thread = True
+
+    def hover(self, selector:Tilemap_Selector):
+        def callback(event:tk.Event):
+            tuile = selector.get_tuile()
+            if tuile != None:
+                x = self.canva.canvasx(event.x)
+                y = self.canva.canvasy(event.y)
+                self.apercu(x, y, tuile)
+        return callback
+    
+    def leave(self, event):
+        self.canva.delete("fantome")
+    
+    def click(self, selector:Tilemap_Selector):
+        def callback(event:tk.Event):
+            pass
+        return callback
+
+class Tilemap_Selector:
     def __init__(self, root) -> None:
         self.B1 = False
-        self.old_canva = None
         self.tuile = (None, None)
         self.canvas_list = []
         
         # Capturer le relâchement au niveau de la fenêtre
         root.bind("<ButtonRelease-1>", self.release)
 
-    def get_tuile(self):
+    def get_tuile(self) -> Image_PIL.Image | None:
         """Renvoie la tuile qui à été sélectionnée"""
-        return self.tuile
-    
+        if self.tuile[1] != None:
+            canva, tag = self.tuile
+            numero = int(tag[3:])
+            return canva.img_list[numero]
+            
     def set_tuile(self, widget, tag):
         """Enregistre la tuile cliquée"""
         self.tuile = (widget, tag)
@@ -150,10 +281,9 @@ class TilemapSelector:
         for id in canvas.find_closest(local_x, local_y):
             tag = canvas.gettags(id)[0]
             if tag != "TEXT" and tag != "highlight":
-                if self.old_canva:
-                    self.old_canva.delete("highlight")
+                if self.tuile[0]:
+                    self.tuile[0].delete("highlight")
                 img_x, img_y = canvas.coords(tag)
-                self.old_canva = canvas
                 self.set_tuile(canvas, tag)
                 
                 canvas.create_rectangle(
@@ -164,7 +294,7 @@ class TilemapSelector:
                 )
                 break
 
-    def hover(self, event):
+    def hover(self, event: tk.Event):
         """Vérifie à chaque moment si qd tu passe sur une tuile il faut la sélectioner."""
         if not self.B1:
             return
@@ -183,11 +313,11 @@ class TilemapSelector:
                 self._traiter_position(canvas, x, y)
                 break
 
-    def release(self, event):
+    def release(self, event: tk.Event):
         """Traite le relachement du bouton B1 en indiquant au programme son état."""
         self.B1 = False
 
-    def click(self, event):
+    def click(self, event: tk.Event):
         """Traite n'importe quel appui et indique que le bouton B1 est préssé."""
         self.B1 = True
         self._traiter_position(
