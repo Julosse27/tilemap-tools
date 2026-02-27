@@ -2,7 +2,7 @@
 import argparse
 import sys
 from .modele_manager import mdl_create, mdl_modif, mdl_view
-from .tilemap_manager import map_create
+from .tilemap_manager import map_create, map_view
 from os import getcwd, listdir, remove, makedirs
 from os.path import exists, join, dirname
 
@@ -78,9 +78,11 @@ def main():
     create_map_parser.add_argument('output', type=str, help="Le nom du fichier qui sera créé.")
     create_map_parser.add_argument('modeles', nargs='+', action=Check_modeles, help="Les fichiers que tu veut utiliser pour construire ta tilemap.", metavar='*.mdl')
 
+    # Visualiser un fichier
     view_parser = subparsers.add_parser('view', help="Permet de consulter un fichier de modèle ou de tilemap.")
     view_parser.add_argument('fichier', type=str, action=Check_fichier, help="Le fichier que vous voulez consulter (.mdl ou .map)")
 
+    # Modifier un fichier
     modif_parser = subparsers.add_parser('modif', help="Permet de modifier un fichier .map ou .mdl.")
     modif_parser.add_argument('fichier', type=str, action=Check_fichier, help="Le fichier que vous voulez modifier.", metavar="*.mdl, *.map")
 
@@ -100,12 +102,15 @@ def main():
     elif args.command == 'view':
         if exists(join(dossier_commande, args.fichier + ".mdl")):
             mdl_view(dossier_commande, args.fichier)
+        else:
+            map_view(dossier_commande, args.fichier)
     elif args.command == 'clean':
         dossier = join(dirname(__file__), "pyxres_bin")
         for file_name in listdir(dossier):
             remove(join(dossier, file_name))
         print()
         print("Fichiers temporaires suprimés.")
+        print()
     elif args.command == 'modif':
         if exists(join(dossier_commande, args.fichier + ".mdl")):
             mdl_modif(args.fichier, dossier_commande)
