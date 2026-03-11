@@ -6,15 +6,16 @@ from time import time, sleep
 from pyxel import load, init, images, colors as col, Image, save, load_pal, quit as px_quit
 from PIL import Image as Image_PIL, ImageTk, ImageDraw
 import tkinter as tk
+from .formateur import encode, decode, generate_temp
 
 class TilemapViewer:
-    def __init__(self, root: tk.Tk, image_path, nb_tiles, nom_fichier):
+    def __init__(self, root: tk.Tk, image: Image_PIL.Image, nb_tiles, nom_fichier):
         self.nb_tiles = nb_tiles
 
         bg = "#6835c7"
 
         # Charger l'image
-        self.original_image = Image_PIL.open(image_path)
+        self.original_image = image
         
         # Créer une copie pour dessiner la grille
         self.display_image = self.original_image.copy()
@@ -132,27 +133,16 @@ class TilemapViewer:
         )
 
 def mdl_view(dossier:str, nom_fichier:str):
-    fichier_temp = join(abspath(dirname(__file__)), "pyxres_bin", f"bin_{int(time() * 10)}")
-    fichier = join(dossier, nom_fichier + ".mdl")
+    fichier = decode(join(dossier, nom_fichier))
     
-    with open(fichier, "rb") as f:
-        liste = f.read().split(b",,")
-        print(len(liste))
-        print(liste[1])
-        img = liste[0]
-        nb_tuiles = int(liste[2].decode())
-    with open(fichier_temp + ".png", "wb") as f:
-        f.write(img)
     root = tk.Tk()
     root.title("Affichage de la tilemap.")
     root.grid_rowconfigure([0, 1], weight=1)
     root.geometry("500x500")
 
-    TilemapViewer(root, fichier_temp + ".png", nb_tuiles, nom_fichier)
+    TilemapViewer(root, fichier.image, fichier.nb_tiles, nom_fichier)
     
     root.mainloop()
-
-    remove(fichier_temp + ".png")
 
 def mdl_create(taille:int, nb_tiles:int, file:str, colors: None | list[str], dossier:str): # pyright: ignore[reportRedeclaration]
     print()
@@ -169,15 +159,17 @@ def mdl_create(taille:int, nb_tiles:int, file:str, colors: None | list[str], dos
 
     init(0, 0)
 
-    nom_fichier_res = f'{join(dirname(__file__), "pyxres_bin", f"bin_{int(time() * 10)}")}'
+    nom_fichier_res = generate_temp()
 
     if colors is None:
         colors: list[str] = []
         for color in col.to_list():
             colors.append(hex(color)[2:])
     else:
-        colors.insert(0, '000000')
+        colors.insert(0, '0')
         open(nom_fichier_res + ".pyxpal", "w").write("\n".join(map(str, colors)))
+
+    colors = "\n".join(colors) # pyright: ignore[reportAssignmentType]
 
     tentative = 0
     ok = False
@@ -199,8 +191,8 @@ def mdl_create(taille:int, nb_tiles:int, file:str, colors: None | list[str], dos
                 ok = True
             else:
                 if tentative <= 10:
-                    print("Je ne peut pas créer un fichier vide.")
                     print()
+                    print(f"Tentative numéro {tentative} dans 1 seconde.")
                     tentative += 1
                 else:
                     if exists(nom_fichier_res + ".pyxres"):
@@ -216,7 +208,7 @@ def mdl_create(taille:int, nb_tiles:int, file:str, colors: None | list[str], dos
             print("Il y à eu un problème avec le fichier, pensez à l'enregistrer avant de le fermer.")
             print(f"Erreur : {e}")
             if tentative <= 10:
-                print("Nouvelle tentative dans 1 seconde.")
+                print(f"Tentative numéro {tentative} dans 1 seconde.")
                 tentative += 1
                 sleep(1)
             else:
@@ -227,17 +219,12 @@ def mdl_create(taille:int, nb_tiles:int, file:str, colors: None | list[str], dos
     test = Image(taille * nb_tiles, taille * nb_tiles)
     test.blt(0, 0, 0, 0, 0, taille * nb_tiles, taille * nb_tiles)
     test.save(nom_fichier_res + ".png", 1)
-    with open(nom_fichier_res + ".png", "rb") as u:
-        img_png = u.read()
-    with open(join(dossier, file + ".mdl"), "wb") as f:
-        f.write(img_png + f",,{taille},,{nb_tiles},,{"\n".join(map(str, colors))}".encode())
-            
+
     remove(fr"{nom_fichier_res}.pyxres")
-    remove(fr"{nom_fichier_res}.png")
     if exists(nom_fichier_res + ".pyxpal"):
         remove(fr"{nom_fichier_res}.pyxpal")
 
-    return
+    encode(join(dossier, file + ".mdl"), taille=taille, nb_tiles=nb_tiles, image=nom_fichier_res+".png", couleurs=colors)
 
 def mdl_modif(file:str, dossier:str):
     nom_fichier_temp = f'{join(dirname(__file__), "pyxres_bin", f"bin_{int(time() * 10)}")}'

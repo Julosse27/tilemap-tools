@@ -1,86 +1,97 @@
 """Fichier qui gère toutes les commandes en rapport avec les fichiers tilemaps"""
-from subprocess import run
-from typing import Any
-from os import remove
-from os.path import dirname, join, exists, abspath
-from time import time, sleep
-from pyxel import load, init, images, colors as col, Image, save, load_pal
 from PIL import Image as Image_PIL, ImageTk
 import tkinter as tk
-from threading import Thread
+from .formateur import encode, decode, remove, generate_temp
+from .commun import join
 
-# Stucture d'un fichier en .map
-# Séparateurs possibles pour ne pas modifier l'image: ()&!,-
-# sep général: &
-# sep modèles: !
-# sep intra-modèle: ,
-# sep tilemap: !
+
+IMAGE_VIDE = Image_PIL.new('RGB', (512, 512))
+BG = "#774634"
+COULEUR_ECRITURE = "#F4A460"
+
+def map_view(dossier:str, nom_fichier:str):
+
+    fichier = decode(join(dossier, nom_fichier))
+
+    root = tk.Tk()
+    root.title(f"Visualisation de la tilemap {nom_fichier}")
+    root.configure(bg=BG)
+    root.geometry("1000x550")
+
+    tk.Label(root, bg=BG, fg=COULEUR_ECRITURE, font=("Arial", 20, "bold"), text=f"Voici le contenu du fichier {nom_fichier}").pack(pady=(5, 10))
+
+    frame = tk.Frame(root, width=1000, height=300, bg=BG)
+    frame.pack()
+
+    dessinateur = Dessinateur(frame, image_base=fichier.image, cursor= "target")
+
+    tk.Label(frame, bg=BG, fg=COULEUR_ECRITURE, font=("Arial", 15), text="Cliquez sur une partie de l'image pour savoir\nd'où vient cette tuile.", justify=tk.CENTER).place(relx=0.75, rely=0.5, anchor=tk.CENTER)
+
+    root.mainloop()
+    dessinateur.stop_thread()
+    fichier.close()
 
 def map_create(dossier:str, noms_fichiers_mdl:list[str], nom_fichier:str):
-    
-    nom_fichier_temp = f'{join(dirname(__file__), "pyxres_bin", f"bin_{int(time() * 10)}")}'
+    nom_fichier_temp = generate_temp("png")
 
-    bg = "#808254"
-
-    liste_tiles: list[list[tuple[Image_PIL.Image, int, int, int]]] = []
+    liste_tiles: list[list[tuple[Image_PIL.Image, int, int, int, str]]] = []
+    liste_couleurs: list[str] = []
     for fichier_mdl in noms_fichiers_mdl:
-        with open(join(dossier, fichier_mdl + ".mdl"), "rb") as f:
-            liste = f.read().split(b",,")
-            img = liste[0]
-            taille = int(liste[1])
-            nb = int(liste[2])
-        with open(nom_fichier_temp + ".png", "wb") as f:
-            f.write(img)
-        image = Image_PIL.open(nom_fichier_temp + ".png")
+        fichier = decode(join(dossier, fichier_mdl + ".mdl"))
+        image = fichier.image
+        taille = fichier.taille
+        nb = fichier.nb_tiles
+        liste_couleurs.append("\n".join(fichier.couleurs))
         
-        images_tiles = []
+        images_tiles: list[tuple[Image_PIL.Image, int, int, int, str]] = []
         tile_x = 0
         for x in range(0, image.width, taille):
             tile_y = 0
             for y in range(0, image.height, taille):
                 partie_img = image.crop((x, y, x + taille, y + taille)) # Prend juste une tile de l'image du modèle
-                images_tiles.append((partie_img, tile_x, tile_y, nb)) # L'ajoute à la liste
+                images_tiles.append((partie_img, tile_x, tile_y, nb, fichier_mdl)) # L'ajoute à la liste
                 tile_y += 1 # Met à jour les coordonnées de la tuile
             tile_x += 1
         liste_tiles.append(images_tiles)
-        image.close()
-        remove(nom_fichier_temp + ".png")
+        fichier.close()
 
     root = tk.Tk() # Créer une fenètre avec tkinter
     root.title("Création de tilemaps") # Définir le titre de la fenètre
     root.geometry("1000x650") # Définir la taille de la fenètre
-    root.configure(bg= bg) # Mettre un background
+    root.configure(bg= BG) # Mettre un background
     # Permet d'équilibrer la fenètre pour ne pas avoir un élément qui prend plus de place qu'un autre.
 
-    tk.Label(root, text=f"Créez vottre fichier {nom_fichier}.map avec les éléments que vous avez demandé", font=('Arial', 15, 'bold'), bg=bg).pack()
+    tk.Label(root, text=f"Créez votre fichier {nom_fichier}.map avec les éléments que vous avez demandé", font=('Arial', 15, 'bold'), bg=BG, fg=COULEUR_ECRITURE).pack()
 
-    frame_principale = tk.Frame(root, width=1000, height=271, bg=bg)
+    frame_principale = tk.Frame(root, width=1000, height=271, bg=BG)
     frame_principale.pack()
 
-    tk.Label(frame_principale, text=f"Cette image sera ce que contiendra le fichier\n{nom_fichier}.map lors de son enregistrement.\nSélectionez des tuiles puis placez les sur cette fenètre\npour le construire.", font=('Arial', 15), bg=bg, justify=tk.CENTER).place(relx=0.7,rely=0.5, anchor=tk.CENTER)
+    tk.Label(frame_principale, text=f"Cette image sera ce que contiendra le fichier\n{nom_fichier}.map lors de son enregistrement.\nSélectionez des tuiles puis placez les sur cette fenètre\npour le construire.", font=('Arial', 15), bg=BG, justify=tk.CENTER, fg=COULEUR_ECRITURE).place(relx=0.7,rely=0.5, anchor=tk.CENTER)
 
-    selector = Selecteur_tilemap(root)
+    selector = Selecteur(root)
 
-    dessinateur = Dessinateur_tilemap(frame_principale, selector)
+    dessinateur = Dessinateur(frame_principale, selector)
+
+    root.bind("<Control-z>", dessinateur.annuler)
 
     for i, images in enumerate(liste_tiles):
-        tk.Label(root, text=f"Voici le contenu du fichier {noms_fichiers_mdl[i]}", font=("Arial", 9, "bold"), bg=bg).pack()
-        canva = tk.Canvas(root, bg=bg, height= 90, width= 1000, highlightthickness=0, bd=0)
+        tk.Label(root, text=f"Voici le contenu du fichier {noms_fichiers_mdl[i]}", font=("Arial", 9, "bold"), bg=BG, fg=COULEUR_ECRITURE).pack()
+        canva = tk.Canvas(root, bg=BG, height= 90, width= 1000, highlightthickness=0, bd=0)
 
-        décallage = 62
-        longeur_ligne = 50 + décallage*(len(images) - 1)
+        decallage = 62
+        longeur_ligne = 50 + decallage*(len(images) - 1)
         debut = 500 - (longeur_ligne // 2)
 
         canva.photos_list = getattr(canva, 'photos_list', []) # pyright: ignore[reportAttributeAccessIssue]
         canva.img_list = getattr(canva, 'img_list', []) # pyright: ignore[reportAttributeAccessIssue]
         for i, elements in enumerate(images):
-            img, tile_x, tile_y, nb = elements
+            img, tile_x, tile_y, nb, nom = elements
 
             img_taille = img.resize((50, 50), Image_PIL.NEAREST) # pyright: ignore[reportAttributeAccessIssue]
 
             photo = ImageTk.PhotoImage(img_taille)
 
-            canva.create_image(debut + i*décallage, 0, anchor=tk.NW, image= photo, tags=f"img{i}")
+            canva.create_image(debut + i*decallage, 0, anchor=tk.NW, image= photo, tags=f"{nom}{i}")
 
             if tile_x == 0:
                 x_position = "gauche"
@@ -110,7 +121,7 @@ def map_create(dossier:str, noms_fichiers_mdl:list[str], nom_fichier:str):
 
             nom = nom.capitalize()
 
-            canva.create_text(debut + i*décallage + 25, 53 + 5*len(nom.splitlines()), anchor=tk.CENTER, text=nom, font=("Arial", 7), justify=tk.CENTER, tags="TEXT")
+            canva.create_text(debut + i*decallage + 25, 53 + 5*len(nom.splitlines()), anchor=tk.CENTER, text=nom, font=("Arial", 7), justify=tk.CENTER, tags="TEXT", fill=COULEUR_ECRITURE)
 
             canva.photos_list.append(photo) # pyright: ignore[reportAttributeAccessIssue]
             canva.img_list.append(img) # pyright: ignore[reportAttributeAccessIssue]
@@ -123,10 +134,19 @@ def map_create(dossier:str, noms_fichiers_mdl:list[str], nom_fichier:str):
 
     root.mainloop()
     dessinateur.stop_thread()
+    dessinateur.source_img.save(nom_fichier_temp)
+    infos_fichiers = []
+    for i, fichier in enumerate(noms_fichiers_mdl):
+        infos_fichiers.append((fichier, liste_couleurs[i]))
+    encode(join(dossier, nom_fichier + ".map"), image=nom_fichier_temp, fichiers=infos_fichiers, modifs=dessinateur.list_contruction)
 
-class Dessinateur_tilemap:
-    def __init__(self, frame: tk.Frame, selector:Selecteur_tilemap) -> None:
-        self.source_img = Image_PIL.new('RGB', (512, 512))
+class Dessinateur:
+    def __init__(self, frame: tk.Frame, selector:Selecteur | None = None, *, image_base: Image_PIL.Image = IMAGE_VIDE, rely:float = 0, relx:float = 0.25, cursor:str = "none") -> None:
+        assert image_base.size == (512, 512), "La taille de l'image de base doit être de 512x512 pour suivre le programme."
+        assert image_base.mode == 'RGB', "Le mode d'ouverture de cette image doit être en RGB."
+        self.source_img = image_base
+        self.list_modifs: list[Image_PIL.Image] = [self.source_img.copy()]
+        self.list_contruction: list[tuple[bytes, str, int, int]] = []
 
         self.selector = selector
         bg = frame.cget("bg")
@@ -134,8 +154,10 @@ class Dessinateur_tilemap:
         self.variations_toggle = True
         self._stop_thread = False
 
+        self.dernier_click = (None, None)
+
         frame_dessin = tk.Frame(frame, bg=bg)
-        frame_dessin.place(relx=0.25, rely=0, anchor=tk.N)
+        frame_dessin.place(relx=relx, rely=rely, anchor=tk.N)
 
         self.tile_img = None
 
@@ -145,7 +167,7 @@ class Dessinateur_tilemap:
 
         photo = ImageTk.PhotoImage(self.get_display_img())
 
-        self.canva = tk.Canvas(frame_dessin, width= 256, height=256, highlightthickness=0, bd=0, cursor="none")
+        self.canva = tk.Canvas(frame_dessin, width= 256, height=256, highlightthickness=0, bd=0, cursor=cursor)
         self.image_id = self.canva.create_image(0, 0, anchor = tk.NW, image=photo)
         self.canva.image = photo # pyright: ignore[reportAttributeAccessIssue]
 
@@ -176,28 +198,66 @@ class Dessinateur_tilemap:
     def get_display_img(self):
         return self.source_img.resize((2048, 2048), Image_PIL.Resampling.NEAREST)
     
-    def set_new_img(self, x:int, y:int):
+    def set_img(self):
         """
         Met à jour l'image principale du fichier tilemap et sa représentation.
+        """
+        image = self.get_display_img()
+        photo = ImageTk.PhotoImage(image)
+
+        self.canva.itemconfig(self.image_id, image=photo)
+        self.canva.image = photo # pyright: ignore[reportAttributeAccessIssue]
+
+    def annuler(self, event: tk.Event):
+        """
+        Annule la dernière action que l'utilisateur à fait.
+        """
+        try:
+            old_img = self.list_modifs[-2]
+            self.list_modifs[-1].close()
+            self.list_modifs.pop()
+            self.list_contruction.pop()
+            self.source_img = old_img.copy()
+            self.set_img()
+        except:
+            pass
+
+    def format_infos(self):
+        """
+        Permet de récupérer les information de création sous la forme d'un string.
+        """
+        pass
+
+    def add_new_img(self, x:int, y:int):
+        """
+        Ajoute la tuile sélectionnées au coordonnées données.
         
         :param x: L'ordonnée x du centre de l'image (taille réelle)
         :type x: int
         :param y: L'absice y du centre de l'image (taille réelle)
         :type y: int
         """
-        tuile = self.selector.get_tuile()
+        if self.selector != None:
+            tuile = self.selector.get_tuile()
 
-        if tuile != None:
-            x -= tuile.width // 2
-            y -= tuile.height // 2
-            print(x, y)
-            self.source_img.paste(tuile, (x, y))
+            if tuile != None:
+                x -= tuile.width // 2
+                y -= tuile.height // 2
 
-            image = self.get_display_img()
-            photo = ImageTk.PhotoImage(image)
+                nom_fichier_temp = generate_temp("png")
 
-            self.canva.itemconfig(self.image_id, image=photo)
-            self.canva.image = photo # pyright: ignore[reportAttributeAccessIssue]
+                tuile.save(nom_fichier_temp)
+
+                with open(nom_fichier_temp, "rb") as f:
+                    self.list_contruction.append((f.read(), tuile.nom_fichier, x, y)) # pyright: ignore[reportAttributeAccessIssue]
+
+                remove(nom_fichier_temp)
+                
+                self.source_img.paste(tuile, (x, y))
+                
+                self.list_modifs.append(self.source_img.copy())
+
+                self.set_img()
 
     def variation_alpha(self):
         if self._stop_thread:
@@ -253,12 +313,17 @@ class Dessinateur_tilemap:
     def stop_thread(self):
         self._stop_thread = True
 
+    def get_tuile_click(self):
+        for i in range(len(self.list_modifs) - 1, -1, -1):
+            pass
+
     def hover(self, event:tk.Event):
-        tuile = self.selector.get_tuile()
-        if tuile != None:
-            x = self.canva.canvasx(event.x)
-            y = self.canva.canvasy(event.y)
-            self.apercu(x, y, tuile)
+        if self.selector != None:
+            tuile = self.selector.get_tuile()
+            if tuile != None:
+                x = self.canva.canvasx(event.x)
+                y = self.canva.canvasy(event.y)
+                self.apercu(x, y, tuile)
     
     def leave(self, event):
         self.canva.delete("fantome")
@@ -278,9 +343,10 @@ class Dessinateur_tilemap:
         else:
             y = y_canva // 4 + 1
 
-        self.set_new_img(x, y) # Met à jour l'image principale au niveau du clic
+        self.add_new_img(x, y) # Met à jour l'image principale au niveau du clic
+        self.dernier_click = (x, y)
         
-class Selecteur_tilemap:
+class Selecteur:
     def __init__(self, root) -> None:
         self.B1 = False
         self.tuile = (None, None)
@@ -293,8 +359,10 @@ class Selecteur_tilemap:
         """Renvoie la tuile qui à été sélectionnée"""
         if self.tuile[1] != None:
             canva, tag = self.tuile
-            numero = int(tag[3:])
-            return canva.img_list[numero]
+            numero = int(tag[-1])
+            img = canva.img_list[numero]
+            img.nom_fichier = tag[:-1]
+            return img
             
     def set_tuile(self, widget, tag):
         """Enregistre la tuile cliquée"""

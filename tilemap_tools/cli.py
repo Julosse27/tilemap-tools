@@ -2,11 +2,11 @@
 import argparse
 import sys
 from .modele_manager import mdl_create, mdl_modif, mdl_view
-from .tilemap_manager import map_create
+from .tilemap_manager import map_create, map_view
 from os import getcwd, listdir, remove, makedirs
-from os.path import exists, join, dirname
+from os.path import exists, join, dirname, splitext
 
-DOSSIER = join(dirname(__file__), "pyxres_bin")
+DOSSIER = join(dirname(__file__), "bin")
 
 # Créez le dossier s'il n'existe pas
 if not exists(DOSSIER):
@@ -38,7 +38,10 @@ class Check_modeles(argparse.Action):
 
 class Check_taille(argparse.Action):
     def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values, option_string: str | None = None) -> None:
-        if int(values) > 32: # pyright: ignore[reportArgumentType]
+        if int(values) < 0: # pyright: ignore[reportArgumentType]
+            parser.error("les tuiles de votre modèle doivent faire au moins 1 de coté.")
+
+        elif int(values) > 32: # pyright: ignore[reportArgumentType]
             parser.error("Vous ne pouvez pas faire un modèle avec des tiles plus grande que 32 pixels.")
         
         setattr(namespace, self.dest, values)
@@ -46,7 +49,7 @@ class Check_taille(argparse.Action):
 class Check_fichier(argparse.Action):
     def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values, option_string: str | None = None) -> None:
         for name in [".mdl", ".map"]:
-            if exists(join(getcwd(), values + name)): # pyright: ignore[reportOperatorIssue]
+            if splitext(values)[1] == name: # pyright: ignore[reportCallIssue, reportArgumentType]
                 break
         else:
             parser.error("Vous devez proposer un fichier valide (soit .mdl, soit .map).")
@@ -78,9 +81,11 @@ def main():
     create_map_parser.add_argument('output', type=str, help="Le nom du fichier qui sera créé.")
     create_map_parser.add_argument('modeles', nargs='+', action=Check_modeles, help="Les fichiers que tu veut utiliser pour construire ta tilemap.", metavar='*.mdl')
 
+    # Visualiser un fichier
     view_parser = subparsers.add_parser('view', help="Permet de consulter un fichier de modèle ou de tilemap.")
     view_parser.add_argument('fichier', type=str, action=Check_fichier, help="Le fichier que vous voulez consulter (.mdl ou .map)")
 
+    # Modifier un fichier
     modif_parser = subparsers.add_parser('modif', help="Permet de modifier un fichier .map ou .mdl.")
     modif_parser.add_argument('fichier', type=str, action=Check_fichier, help="Le fichier que vous voulez modifier.", metavar="*.mdl, *.map")
 
@@ -98,14 +103,17 @@ def main():
         else:
             create_parser.print_help()
     elif args.command == 'view':
-        if exists(join(dossier_commande, args.fichier + ".mdl")):
+        if splitext(args.fichier)[1] == ".mdl":
             mdl_view(dossier_commande, args.fichier)
+        else:
+            map_view(dossier_commande, args.fichier)
     elif args.command == 'clean':
-        dossier = join(dirname(__file__), "pyxres_bin")
+        dossier = join(dirname(__file__), "bin")
         for file_name in listdir(dossier):
             remove(join(dossier, file_name))
         print()
         print("Fichiers temporaires suprimés.")
+        print()
     elif args.command == 'modif':
         if exists(join(dossier_commande, args.fichier + ".mdl")):
             mdl_modif(args.fichier, dossier_commande)
