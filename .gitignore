@@ -9,7 +9,7 @@ test.py
 .vscode/
 
 # Fichiers temporaires
-tilemap_tools/pyxres_bin/
+tilemap_tools/bin/
 
 # Tests
 *.mdl

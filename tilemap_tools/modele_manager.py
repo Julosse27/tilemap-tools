@@ -6,7 +6,7 @@ from time import time, sleep
 from pyxel import load, init, images, colors as col, Image, save, load_pal, quit as px_quit
 from PIL import Image as Image_PIL, ImageTk, ImageDraw
 import tkinter as tk
-from .formateur import encode, decode
+from .formateur import encode, decode, generate_temp
 
 class TilemapViewer:
     def __init__(self, root: tk.Tk, image: Image_PIL.Image, nb_tiles, nom_fichier):
@@ -133,19 +133,16 @@ class TilemapViewer:
         )
 
 def mdl_view(dossier:str, nom_fichier:str):
-    fichier_temp = join(abspath(dirname(__file__)), "pyxres_bin", f"bin_{int(time() * 10)}")
-    fichier = decode(join(dossier, nom_fichier + ".mdl"))
+    fichier = decode(join(dossier, nom_fichier))
     
     root = tk.Tk()
     root.title("Affichage de la tilemap.")
     root.grid_rowconfigure([0, 1], weight=1)
     root.geometry("500x500")
 
-    TilemapViewer(root, fichier.image, fichier.nb_tuiles, nom_fichier) # pyright: ignore[reportAttributeAccessIssue]
+    TilemapViewer(root, fichier.image, fichier.nb_tiles, nom_fichier)
     
     root.mainloop()
-
-    remove(fichier_temp + ".png")
 
 def mdl_create(taille:int, nb_tiles:int, file:str, colors: None | list[str], dossier:str): # pyright: ignore[reportRedeclaration]
     print()
@@ -162,15 +159,17 @@ def mdl_create(taille:int, nb_tiles:int, file:str, colors: None | list[str], dos
 
     init(0, 0)
 
-    nom_fichier_res = f'{join(dirname(__file__), "pyxres_bin", f"bin_{int(time() * 10)}")}'
+    nom_fichier_res = generate_temp()
 
     if colors is None:
         colors: list[str] = []
         for color in col.to_list():
             colors.append(hex(color)[2:])
     else:
-        colors.insert(0, '000000')
+        colors.insert(0, '0')
         open(nom_fichier_res + ".pyxpal", "w").write("\n".join(map(str, colors)))
+
+    colors = "\n".join(colors) # pyright: ignore[reportAssignmentType]
 
     tentative = 0
     ok = False
