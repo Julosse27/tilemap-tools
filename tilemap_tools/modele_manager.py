@@ -8,7 +8,7 @@ from PIL import Image as Image_PIL, ImageTk, ImageDraw
 import tkinter as tk
 from .formateur import encode, decode, generate_temp
 
-class TilemapViewer:
+class Modele_Viewer:
     def __init__(self, root: tk.Tk, image: Image_PIL.Image, nb_tiles, nom_fichier):
         self.nb_tiles = nb_tiles
 
@@ -132,19 +132,19 @@ class TilemapViewer:
             tags="highlight"
         )
 
-def mdl_view(dossier:str, nom_fichier:str):
-    fichier = decode(join(dossier, nom_fichier))
+def mdl_view(chemin_fichier:str):
+    fichier = decode(chemin_fichier)
     
     root = tk.Tk()
     root.title("Affichage de la tilemap.")
     root.grid_rowconfigure([0, 1], weight=1)
     root.geometry("500x500")
 
-    TilemapViewer(root, fichier.image, fichier.nb_tiles, nom_fichier)
+    Modele_Viewer(root, fichier.image, fichier.nb_tiles, chemin_fichier.split("/")[-1])
     
     root.mainloop()
 
-def mdl_create(taille:int, nb_tiles:int, file:str, colors: None | list[str], dossier:str): # pyright: ignore[reportRedeclaration]
+def mdl_create(taille:int, nb_tiles:int, chemin_fichier:str, colors: None | list[str]): # pyright: ignore[reportRedeclaration]
     print()
     print("""Vous devez créer un modèle pour tilemap:
             - Vous devez créer un carré contenant les 4 coins, les 4 cotés et le milieu du modèle
@@ -224,34 +224,28 @@ def mdl_create(taille:int, nb_tiles:int, file:str, colors: None | list[str], dos
     if exists(nom_fichier_res + ".pyxpal"):
         remove(fr"{nom_fichier_res}.pyxpal")
 
-    encode(join(dossier, file + ".mdl"), taille=taille, nb_tiles=nb_tiles, image=nom_fichier_res+".png", couleurs=colors)
+    encode(chemin_fichier, taille=taille, nb_tiles=nb_tiles, image=nom_fichier_res+".png", couleurs=colors)
 
-def mdl_modif(file:str, dossier:str):
-    nom_fichier_temp = f'{join(dirname(__file__), "pyxres_bin", f"bin_{int(time() * 10)}")}'
+def mdl_modif(chemin_fichier:str):
+    nom_fichier_temp = generate_temp()
 
-    with open(join(dossier, file + ".mdl"), "rb") as f:
-        liste = f.read().split(b",,")
-        img_bytes = liste[0]
-        taille = int(liste[1])
-        nb = int(liste[2])
-        couleurs = liste[3].decode()
+    fichier = decode(chemin_fichier)
 
     print()
     print(f"""Ce fichier contient une tilemap:
-          - de {nb}x{nb} tuiles;
-          - de {taille} pixels de larges""")
+          - de {fichier.nb_tiles}x{fichier.nb_tiles} tuiles;
+          - de {fichier.taille} pixels de larges""")
     print()
-    
-    with open(nom_fichier_temp + ".png", "wb") as f:
-        f.write(img_bytes)
 
-    open(nom_fichier_temp + ".pyxpal", "w").write(couleurs)
+    open(nom_fichier_temp + ".pyxpal", "w").write("\n".join(fichier.couleurs))
 
-    width, height = Image_PIL.open(nom_fichier_temp + ".png").size
+    width, height = fichier.image.size
 
-    init(width, height, display_scale= 0)
+    init(0, 0)
 
     load_pal(nom_fichier_temp + ".pyxpal")
+    
+    fichier.img_save(nom_fichier_temp)
 
     images[0].load(0, 0, nom_fichier_temp + ".png")
 
@@ -287,14 +281,10 @@ def mdl_modif(file:str, dossier:str):
                 sleep(1)
             else:
                 return
-            
     test = Image(width, height)
     test.blt(0, 0, 0, 0, 0, width, height)
     test.save(nom_fichier_temp + ".png", 1)
-    with open(nom_fichier_temp + ".png", "rb") as u:
-        img_png = u.read()
-    with open(join(dossier, file + ".mdl"), "wb") as f:
-        f.write(img_png + f",,{taille},,{nb},,{couleurs}".encode())
-    remove(nom_fichier_temp + ".png")
     remove(nom_fichier_temp + ".pyxres")
     remove(nom_fichier_temp + ".pyxpal")
+
+    encode(chemin_fichier, image=nom_fichier_temp + ".png", taille=fichier.taille, nb_tiles=fichier.nb_tiles, couleurs="\n".join(fichier.couleurs))
