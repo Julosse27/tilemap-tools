@@ -11,7 +11,7 @@ from typing import Literal
 # PNG_FIN = b"IEND\xae\x42\x60\x82"
 FICHIER_MDL = ["image", "taille", "nb_tiles", "couleurs"]
 FICHIER_MAP = ["image", "fichiers", "modifs"]
-VERIFICATION: dict[str, type|list[type]] = {"image": str, "taille": int, "nb_tiles": int, "couleurs": str, "fichiers": [list, tuple, str, str], "modifs": [list, tuple, bytes, str, int, int]}
+VERIFICATION: dict[str, type|list[type]] = {"image": str, "taille": int, "nb_tiles": int, "couleurs": str, "fichiers": [list, str], "modifs": [list, tuple, bytes, str, int, int]}
 
 class Fichier:
     _type_fichier: Literal['.mdl', ".map"]
@@ -68,14 +68,14 @@ class Fichier:
     def taille(self, nv_taille:int):
         self._taille = nv_taille
     
-    _fichiers: list[tuple[str, str]]
+    _fichiers: list[str]
     @property
     def fichiers(self):
-        """La liste du nom des fichiers et de leurs couleurs d'un fichier .map"""
+        """La liste du chemin absolu vers les fichiers d'un fichier .map"""
         return self._fichiers
     
     @fichiers.setter
-    def fichiers(self, files: list[tuple[str, str]]):
+    def fichiers(self, files: list[str]):
         self._fichiers = files
 
     _modifs: list[tuple[Image.Image, str, int, int]]
@@ -84,7 +84,6 @@ class Fichier:
         """La liste de toutes les modification apportées à ce fichier .map"""
         res = []
         for image, nom, x, y in self._modifs:
-            
             res.append((image.copy(), nom, x, y))
         
         return res
@@ -104,6 +103,18 @@ class Fichier:
         
         self._modifs = nv_modifs
 
+    def get_raw(self) -> list[tuple[bytes, str, int, int]]:
+        """Retourne la version brute des modifications (pour fichiers .map)."""
+        res = []
+        for image, nom, x, y in self._modifs:
+            nom_fichier = generate_temp('png')
+            image.save(nom_fichier)
+            with open(nom_fichier, "rb") as f:
+                res.append((f.read(), nom, x, y))
+            remove(nom_fichier)
+
+        return res
+
     def __init__(self, type_fichier:str, elements:dict) -> None:
         _verification(type_fichier, elements)
         self.type_fichier = type_fichier # pyright: ignore[reportAttributeAccessIssue]
@@ -117,6 +128,10 @@ class Fichier:
         if self.type_fichier == ".map":
             for modif in self._modifs:
                 modif[0].close()
+
+    def img_save(self, chemin:str):
+        if self._image:
+            self._image.save(chemin + ".png")
 
 def _verification(type_fichier, elements, **exception:type | list[type]):
     if type_fichier == ".mdl":
@@ -169,8 +184,6 @@ def encode(chemin, **elements):
         for img, nom_fichier, x, y in elements["modifs"]:
             modifs_list.append(img + b",," + nom_fichier.encode() + b",," + f'{x}'.encode() + b',,' + f'{y}'.encode())
         modifs = b"!!".join(modifs_list)
-        for i, fichier in enumerate(elements["fichiers"]):
-            elements["fichiers"][i] = ",,".join(fichier)
         fichiers_mdl = "!!".join(elements["fichiers"]).encode()
 
         with open(chemin, "wb") as f:
@@ -178,13 +191,11 @@ def encode(chemin, **elements):
         remove(elements["image"])
 
 def decode(chemin:str):
-    if splitext(chemin)[1] == ".mdl":
-        type_fichier = '.mdl'
-    elif splitext(chemin)[1] == ".map":
-        type_fichier = '.map'
+    if splitext(chemin)[1] in (".mdl", ".map"):
+        type_fichier = splitext(chemin)[1]
     else:
-        raise NameError(f"Le type{(" " + splitext(chemin)[1]) if splitext(chemin)[1] != None else ""} du fichier que vous voulez encoder n'est pas pris en charge", 
-                        name=splitext(chemin)[1] if splitext(chemin)[1] != "" else None)
+        raise NameError(f"Le type{(" " + splitext(chemin)[1]) if splitext(chemin)[1] != "" else ""} du fichier que vous voulez encoder n'est pas pris en charge", 
+                        name=splitext(chemin)[1] if splitext(chemin)[1] != "" else "")
     
     elements = {}
 
@@ -212,15 +223,14 @@ def decode(chemin:str):
         elements["image"] = fichier_temp
 
         modifs = []
-        for modif_raw in liste[1].split(b"!!"):
-            list_raw = modif_raw.split(b',,')
+        if len(liste[1]) != 0:
+            for modif_raw in liste[1].split(b"!!"):
+                list_raw = modif_raw.split(b',,')
 
-            modifs.append((list_raw[0], list_raw[1].decode(), int(list_raw[2]), int(list_raw[3])))
+                modifs.append((list_raw[0], list_raw[1].decode(), int(list_raw[2]), int(list_raw[3])))
 
         elements["modifs"] = modifs
-        fichiers = []
-        for element in liste[2].decode().split('!!'):
-            fichiers.append(tuple(element.split(",,")))
-        elements["fichiers"] = fichiers
+
+        elements["fichiers"] = liste[2].decode().split('!!')
 
     return Fichier(type_fichier, elements)
