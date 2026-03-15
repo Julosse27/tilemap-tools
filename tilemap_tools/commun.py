@@ -1,5 +1,5 @@
 """Stocke toutes les fonctions et les variables communes à tout les fichiers"""
-from os.path import join, dirname, splitext, splitroot
+from os.path import join, dirname, splitext
 from time import time
 
 

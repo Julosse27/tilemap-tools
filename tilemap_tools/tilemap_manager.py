@@ -1,5 +1,6 @@
 """Fichier qui gère toutes les commandes en rapport avec les fichiers tilemaps"""
 from PIL import Image as Image_PIL, ImageTk
+from typing import Callable
 import tkinter as tk
 from .formateur import encode, decode, remove
 from .commun import get_name, generate_temp
@@ -10,10 +11,9 @@ BG = "#774634"
 COULEUR_ECRITURE = "#F4A460"
 
 def map_view(nom_fichier:str):
+    root = tk.Tk()
 
     fichier = decode(nom_fichier)
-
-    root = tk.Tk()
     root.title(f"Visualisation de la tilemap {get_name(nom_fichier)}")
     root.configure(bg=BG)
     root.geometry("1000x550")
@@ -25,7 +25,28 @@ def map_view(nom_fichier:str):
 
     dessinateur = Dessinateur(frame, image_base=fichier.image, cursor= "target")
 
+    text = tk.StringVar(root, "Vous n'avez pas encore cliqué sur une tuile.")
+
+    def change():
+        if dessinateur.dernier_click != None:
+            x_click, y_click = dessinateur.dernier_click
+            for image, nom_fichier, x, y in fichier.modifs.__reversed__():
+                if (x_click > x and x_click < x + image.width) and (y_click > y and y_click < y + image.height):
+                    text.set(f"Vous avez cliqué sur la tuile aux coordonnées {x_click} {y_click}\nvenant du fichier {nom_fichier}")
+                    img = ImageTk.PhotoImage(image.copy().resize([100, 100], resample=Image_PIL.Resampling.NEAREST))
+                    
+                    image_pres.config(image=img)
+                    image_pres.img = img # pyright: ignore[reportAttributeAccessIssue]
+                    break
+
+    dessinateur.set_callback(change)
+
+    tk.Label(root, bg=BG, fg=COULEUR_ECRITURE, font=("Arial", 15), textvariable=text, justify=tk.CENTER).pack(pady=(0, 15))
+
     tk.Label(frame, bg=BG, fg=COULEUR_ECRITURE, font=("Arial", 15), text="Cliquez sur une partie de l'image pour savoir\nd'où vient cette tuile.", justify=tk.CENTER).place(relx=0.75, rely=0.5, anchor=tk.CENTER)
+
+    image_pres = tk.Label(root, bg=BG)
+    image_pres.pack()
 
     root.mainloop()
     dessinateur.stop_thread()
@@ -47,7 +68,7 @@ def map_create(noms_fichiers_mdl:list[str], nom_fichier:str):
             tile_y = 0
             for y in range(0, image.height, taille):
                 partie_img = image.crop((x, y, x + taille, y + taille)) # Prend juste une tile de l'image du modèle
-                images_tiles.append((partie_img, tile_x, tile_y, nb, fichier_mdl)) # L'ajoute à la liste
+                images_tiles.append((partie_img, tile_x, tile_y, nb, get_name(fichier_mdl))) # L'ajoute à la liste
                 tile_y += 1 # Met à jour les coordonnées de la tuile
             tile_x += 1
         liste_tiles.append(images_tiles)
@@ -250,11 +271,12 @@ class Dessinateur:
 
         self.selector = selector
         bg = frame.cget("bg")
+        self.callback = None
 
         self.variations_toggle = True
         self._stop_thread = False
 
-        self.dernier_click = (None, None)
+        self.dernier_click = None
 
         frame_dessin = tk.Frame(frame, bg=bg)
         frame_dessin.place(relx=relx, rely=rely, anchor=tk.N)
@@ -295,10 +317,16 @@ class Dessinateur:
         self.canva.pack(side=tk.LEFT)
         self.variation_alpha()
 
+    def set_callback(self, callback: Callable):
+        """
+        Met en place une action à chaque click.
+        """
+        self.callback = callback
+
     def get_display_img(self):
         return self.source_img.resize((2048, 2048), Image_PIL.Resampling.NEAREST)
     
-    def set_img(self):
+    def upd_img(self):
         """
         Met à jour l'image principale du fichier tilemap et sa représentation.
         """
@@ -312,20 +340,12 @@ class Dessinateur:
         """
         Annule la dernière action que l'utilisateur à fait.
         """
-        try:
+        if len(self.list_modifs) != 1:
             old_img = self.list_modifs[-2]
             self.list_modifs.pop()
             self.list_contruction.pop()
             self.source_img = old_img.copy()
-            self.set_img()
-        except:
-            pass
-
-    def format_infos(self):
-        """
-        Permet de récupérer les information de création sous la forme d'un string.
-        """
-        pass
+            self.upd_img()
 
     def add_new_img(self, x:int, y:int):
         """
@@ -356,7 +376,7 @@ class Dessinateur:
                 
                 self.list_modifs.append(self.source_img.copy())
 
-                self.set_img()
+                self.upd_img()
 
     def variation_alpha(self):
         if self._stop_thread:
@@ -444,6 +464,8 @@ class Dessinateur:
 
         self.add_new_img(x, y) # Met à jour l'image principale au niveau du clic
         self.dernier_click = (x, y)
+        if self.callback != None:
+            self.callback()
         
 class Selecteur:
     def __init__(self, root) -> None:
