@@ -144,6 +144,7 @@ def main():
             remove(join(DOSSIER, file_name))
         print()
         print("Fichiers temporaires suprimés.")
+        print()
     elif args.command == 'modif':
         if args.type_fichier == ".mdl":
             mdl_modif(args.fichier)

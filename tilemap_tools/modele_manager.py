@@ -1,12 +1,13 @@
 """Fichier qui gère toutes les commandes en rapport avec les modèles"""
 from subprocess import run
-from os.path import dirname, join, exists, abspath
+from os.path import exists
 from os import remove
-from time import time, sleep
+from time import sleep
 from pyxel import load, init, images, colors as col, Image, save, load_pal, quit as px_quit
 from PIL import Image as Image_PIL, ImageTk, ImageDraw
 import tkinter as tk
 from .formateur import encode, decode, generate_temp
+from .commun import Dessinateur, Selecteur
 
 class Modele_Viewer:
     def __init__(self, root: tk.Tk, image: Image_PIL.Image, nb_tiles, nom_fichier):
@@ -132,24 +133,29 @@ class Modele_Viewer:
             tags="highlight"
         )
 
-def mdl_view(chemin_fichier:str):
+def mdl_view(chemin_fichier:str, root: tk.Tk | None=None):
+    if root == None:
+        root = tk.Tk() # Créer une fenètre avec tkinter
+    else:
+        root.deiconify()
+
     fichier = decode(chemin_fichier)
     
-    root = tk.Tk()
     root.title("Affichage de la tilemap.")
     root.grid_rowconfigure([0, 1], weight=1)
     root.geometry("500x500")
 
     Modele_Viewer(root, fichier.image, fichier.nb_tiles, chemin_fichier.split("/")[-1])
     
+    fichier.close()
+
     root.mainloop()
 
 def mdl_create(taille:int, nb_tiles:int, chemin_fichier:str, colors: None | list[str]): # pyright: ignore[reportRedeclaration]
     print()
-    print("""Vous devez créer un modèle pour tilemap:
-            - Vous devez créer un carré contenant les 4 coins, les 4 cotés et le milieu du modèle
-            - Ce carré sera découpé en 9 (les 4 coins, les 4 cotés et le millieu) pour constituer
-              la base pour une future tilemap.
+    print(f"""Vous devez créer un modèle pour tilemap:
+            - Le carré sera découpé en {nb_tiles**2} (les 4 coins, les {4 if nb_tiles == 3 else 8} cotés et {"le" if nb_tiles == 3 else "les 4"} milieu{'' if nb_tiles == 3 else "x"}) de {taille} de cotés chacun 
+              pour constituer la base pour une future tilemap.
             - Après avoir créé votre modèle complet pensez à l'enregistrer puis fermer la fenètre.
             - Le programme s'occupera de faire le reste pour vous et de l'enregistrer au nom que
               vous avez choisit.""")
