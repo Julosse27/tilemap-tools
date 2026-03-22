@@ -1,9 +1,4 @@
 """Fichier qui gère toutes les commandes en rapport avec les modèles"""
-from subprocess import run
-from os.path import exists
-from os import remove
-from time import sleep
-from pyxel import load, init, images, colors as col, Image, save, load_pal, quit as px_quit
 from PIL import Image as Image_PIL, ImageTk, ImageDraw
 import tkinter as tk
 from .formateur import encode, decode, generate_temp
