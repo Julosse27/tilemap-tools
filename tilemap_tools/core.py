@@ -154,7 +154,7 @@ class Tilemap:
         remove(self.chemin_img) # pyright: ignore[reportArgumentType]
         self.chemin_img = None
 
-    def draw(self, x, y, x_tile, y_tile, width, height, scale:float|None = None):
+    def draw(self, x:int, y:int, x_tile:int, y_tile:int, width:int, height:int, scale:float|None = None):
         """
         Permet de dessiner une partie de la tilemap aux coordonnées données (`x`, `y`).
 
