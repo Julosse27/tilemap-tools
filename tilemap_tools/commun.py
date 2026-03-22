@@ -7,9 +7,21 @@ import tkinter as tk
 from PIL import Image, ImageTk
 from typing import Callable
 
-IMAGE_VIDE = Image.new('RGB', (512, 512), "#010101")
-BASE_COLORS = ['0', '2b335f', '7e2072', '19959c', '8b4852', '395c98', 'a9c1ff', 'eeeeee', 'd4186c', 'd38441', 'e9c35b', '70c6a9', '7696de', 'a3a3a3', 'ff9798', 'edc7b0']
+def image_vide(taille:int = 512):
+    img = Image.new('RGBA', (taille, taille))
+    pixels = img.load()
+    
+    for y in range(taille):
+        for x in range(taille):
+            # Damier alterné
+            if (x + y) % 2 == 0:
+                pixels[x, y] = (192, 192, 192, 254) # pyright: ignore[reportOptionalSubscript]
+            else:
+                pixels[x, y] = (255, 255, 255, 254) # pyright: ignore[reportOptionalSubscript]
 
+    return img
+
+BASE_COLORS = ['000000', '2b335f', '7e2072', '19959c', '8b4852', '395c98', 'a9c1ff', 'eeeeee', 'd4186c', 'd38441', 'e9c35b', '70c6a9', '7696de', 'a3a3a3', 'ff9798', 'edc7b0']
 FICHIER_COLORS = join(dirname(__file__), "bin", "liste_couleurs.pyxpal")
 
 def generate_temp(extension:str|None = None):
@@ -26,7 +38,7 @@ def generate_temp(extension:str|None = None):
     nom : `str`
         Le chemin généré avec une extension ou non.
     """
-    nom = f'{join(dirname(__file__), "bin", f"bin_{int(time() * 10)}")}'
+    nom = f'{join(dirname(__file__), "bin", f"bin_{int(time() * 1000)}")}'
     if extension != None:
         nom += "." + extension
     return nom
@@ -44,11 +56,11 @@ def is_init():
     old_stderr_fd = os.dup(2)
     
     devnull = os.open(os.devnull, os.O_WRONLY)
-    
+
     os.dup2(devnull, 1)
     os.dup2(devnull, 2)
     os.close(devnull)
-    
+
     try:
         _ = px.width
         return True
@@ -56,7 +68,7 @@ def is_init():
         return False
     finally:
         os.dup2(old_stdout_fd, 1)
-        os.dup2(old_stderr_fd, 1)
+        os.dup2(old_stderr_fd, 2)
         os.close(old_stdout_fd)
         os.close(old_stderr_fd)
 
@@ -97,6 +109,9 @@ def get_name(path:str, extension:bool = True):
 
     name = chemin.split("\\")[-1]
 
+    if name == chemin:
+        name = chemin.split("/")[-1]
+
     if extension:
         name += extension_name
 
@@ -127,35 +142,46 @@ def get_color(color_code:str):
         if not isfile(FICHIER_COLORS):
             with open(FICHIER_COLORS, "w") as f:
                 f.write("\n".join(BASE_COLORS))
+            color = BASE_COLORS
+        else:
+            with open(FICHIER_COLORS, "r") as f:
+                color = f.read().splitlines()
 
-        with open(FICHIER_COLORS, "r") as f:    
-            color = f.read().splitlines()
-
-    color_code.lower()
+    color_code = color_code.lower()
 
     if color_code not in color:
-        index = len(color)
-        color.append(color_code)
-
-        if is_init():
-            px.colors.from_list(list(map(int, color, [16]*len(color))))
-        else:
-            with open(FICHIER_COLORS, "a") as f:
-                f.write("\n" + color_code)
+        index = add_color(color_code)
     else:
         index = color.index(color_code)
 
+    return index
+
+def add_color(color_code:str):
+    """
+    Rajoute une couleur à pyxel sans vérifier si elle existe déjà.
+    """
+    color_code = color_code.lower()
+    if is_init():
+        index = len(px.colors)
+        px.colors.from_list(px.colors.to_list() + [int(color_code, 16)])
+    else:
+        with open(FICHIER_COLORS, "a+r") as f:
+            index = len(f.read().splitlines())
+            f.write("\n" + color_code)
 
     return index
 
-
 class Dessinateur:
-    def __init__(self, frame: tk.Frame, selector:Selecteur | None = None, *, image_base: Image.Image = IMAGE_VIDE, modifs: list[tuple[bytes, str, int, int]] | None = None, rely:float = 0, relx:float = 0.25, cursor:str = "none") -> None:
-        assert image_base.size == (512, 512), "La taille de l'image de base doit être de 512x512 pour suivre le programme."
-        assert image_base.mode == 'RGB', "Le mode d'ouverture de cette image doit être en RGB."
+    def __init__(self, frame: tk.Frame, selector:Selecteur | None = None, *, image_base: Image.Image = image_vide(), modifs: list[tuple[bytes, str, int, int]] | None = None, rely:float = 0, relx:float = 0.25, ratio:int = 4) -> None:
+        assert image_base.mode == "RGBA", "Le mode d'édition de cette image doit forcement être en RGB ou en RGBA"
+        assert image_base.size[0] == image_base.size[1], "L'image doit être forcément un carré"
+
         self.source_img = image_base
         self.list_modifs: list[Image.Image] = [self.source_img.copy()]
         self.list_contruction: list[tuple[bytes, str, int, int]] = [] if modifs == None else modifs
+        self.ratio = ratio
+        self.size = self.source_img.size[0]
+        self.__toggle_sauv = True
 
         self.selector = selector
         bg = frame.cget("bg")
@@ -177,7 +203,7 @@ class Dessinateur:
 
         photo = ImageTk.PhotoImage(self.get_display_img())
 
-        self.canva = tk.Canvas(frame_dessin, width= 256, height=256, highlightthickness=0, bd=0, cursor=cursor)
+        self.canva = tk.Canvas(frame_dessin, width= 256, height=256, highlightthickness=0, bd=0, cursor="none")
         self.image_id = self.canva.create_image(0, 0, anchor = tk.NW, image=photo)
         self.canva.image = photo # pyright: ignore[reportAttributeAccessIssue]
 
@@ -191,19 +217,32 @@ class Dessinateur:
         self.canva.configure(
             xscrollcommand=h_scroll.set,
             yscrollcommand=v_scroll.set,
-            scrollregion=(0, 0, 2048, 2048)  # Taille réelle du canva
+            scrollregion=(0, 0, self.size * self.ratio, self.size * self.ratio)  # Taille réelle du canva
         )
 
         self.canva.bind("<Button-1>", self.click)
         self.canva.bind("<Motion>", self.hover)
         self.canva.bind("<Leave>", self.leave)
+        self.canva.bind_all("<Control-z>", self.annuler)
 
         h_scroll.pack(fill=tk.X, expand=True)
         v_scroll.pack(fill=tk.Y, expand=True)
         frame_h.pack(side=tk.BOTTOM, anchor=tk.SW)
         frame_v.pack(side=tk.RIGHT)
         self.canva.pack(side=tk.LEFT)
-        self.variation_alpha()
+        self.variation_alpha()       
+
+    def toggle_sauvegarde(self, toggle:bool):
+        """
+        Toggle la sauvegarde des modifications.
+        """
+        self.__toggle_sauv = toggle
+
+    def set_cursor(self, cursor:str):
+        """
+        Change le curseur quand la souris est sur l'image.
+        """
+        self.canva.config(cursor=cursor)
 
     def set_callback(self, callback: Callable):
         """
@@ -212,7 +251,9 @@ class Dessinateur:
         self.callback = callback
 
     def get_display_img(self):
-        return self.source_img.resize((2048, 2048), Image.Resampling.NEAREST)
+        img = self.source_img.resize((self.size * self.ratio, self.size * self.ratio), Image.Resampling.NEAREST)
+
+        return img
     
     def upd_img(self):
         """
@@ -231,7 +272,8 @@ class Dessinateur:
         if len(self.list_modifs) != 1:
             old_img = self.list_modifs[-2]
             self.list_modifs.pop()
-            self.list_contruction.pop()
+            if self.__toggle_sauv:
+                self.list_contruction.pop()
             self.source_img = old_img.copy()
             self.upd_img()
 
@@ -250,15 +292,16 @@ class Dessinateur:
             if tuile != None:
                 x -= tuile.width // 2
                 y -= tuile.height // 2
+                
+                if self.__toggle_sauv:    
+                    nom_fichier_temp = generate_temp("png")
 
-                nom_fichier_temp = generate_temp("png")
+                    tuile.save(nom_fichier_temp)
 
-                tuile.save(nom_fichier_temp)
+                    with open(nom_fichier_temp, "rb") as f:
+                        self.list_contruction.append((f.read(), tuile.nom_fichier, x, y)) # pyright: ignore[reportAttributeAccessIssue]
 
-                with open(nom_fichier_temp, "rb") as f:
-                    self.list_contruction.append((f.read(), tuile.nom_fichier, x, y)) # pyright: ignore[reportAttributeAccessIssue]
-
-                os.remove(nom_fichier_temp)
+                    os.remove(nom_fichier_temp)
                 
                 self.source_img.paste(tuile, (x, y))
                 
@@ -293,25 +336,25 @@ class Dessinateur:
     def apercu(self, x:int, y:int, tile_img: Image.Image):
         self.canva.delete("fantome")
         width, height = tile_img.size
-        self.tile_img = tile_img.convert('RGBA').resize((width * 4, height * 4), Image.Resampling.NEAREST)
+        self.tile_img = tile_img.convert('RGBA').resize((width * self.ratio, height * self.ratio), Image.Resampling.NEAREST)
         self.tile_img.putalpha(self.alpha)
 
         photo = ImageTk.PhotoImage(self.tile_img)
         
-        reste_x = x % 4
-        if reste_x < 2:
+        reste_x = x % self.ratio
+        if reste_x < (self.ratio / 2):
             pixel_x = x - reste_x
         else:
-            pixel_x = x + 4 - reste_x
+            pixel_x = x + self.ratio - reste_x
         
-        reste_y = y % 4
-        if reste_y < 2:
+        reste_y = y % self.ratio
+        if reste_y < (self.ratio / 2):
             pixel_y = y - reste_y
         else:
-            pixel_y = y + 4 - reste_y
+            pixel_y = y + self.ratio - reste_y
 
-        pixel_x -= width//2*4
-        pixel_y -= height//2*4
+        pixel_x -= width//2*self.ratio
+        pixel_y -= height//2*self.ratio
 
         self.canva.create_image(pixel_x, pixel_y, anchor = tk.NW, image=photo, tags="fantome")
 
@@ -337,20 +380,20 @@ class Dessinateur:
         y_canva = int(self.canva.canvasy(event.y))
 
         # Compression des coordonnées
-        if x_canva % 4 < 2:
-            x = x_canva // 4
+        if x_canva % self.ratio < (self.ratio / 2):
+            x = x_canva // self.ratio
         else:
-            x = x_canva // 4 + 1
-        if y_canva % 4 < 2:
-            y = y_canva // 4
+            x = x_canva // self.ratio + 1
+        if y_canva % self.ratio < (self.ratio / 2):
+            y = y_canva // self.ratio
         else:
-            y = y_canva // 4 + 1
+            y = y_canva // self.ratio + 1
 
         self.add_new_img(x, y) # Met à jour l'image principale au niveau du clic
         self.dernier_click = (x, y)
         if self.callback != None:
             self.callback()
-        
+
 class Selecteur:
     def __init__(self, root) -> None:
         self.B1 = False
@@ -364,9 +407,9 @@ class Selecteur:
         """Renvoie la tuile qui à été sélectionnée"""
         if self.tuile[1] != None:
             canva, tag = self.tuile
-            numero = int(tag[-1])
+            numero = int(tag[-2:])
             img = canva.img_list[numero]
-            img.nom_fichier = tag[:-1]
+            img.nom_fichier = tag[:-2]
             return img
             
     def set_tuile(self, widget, tag):

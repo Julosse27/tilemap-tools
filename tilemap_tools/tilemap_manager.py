@@ -23,7 +23,8 @@ def map_view(nom_fichier:str, root: tk.Tk | None=None):
     frame = tk.Frame(root, width=1000, height=300, bg=BG)
     frame.pack()
 
-    dessinateur = Dessinateur(frame, image_base=fichier.image, cursor= "target")
+    dessinateur = Dessinateur(frame, image_base=fichier.image)
+    dessinateur.set_cursor("target")
 
     text = tk.StringVar(root, "Vous n'avez pas encore cliqué sur une tuile.")
 
@@ -72,6 +73,11 @@ def map_create(noms_fichiers_mdl:list[str], nom_fichier:str, root: tk.Tk | None=
             tile_y = 0
             for y in range(0, image.height, taille):
                 partie_img = image.crop((x, y, x + taille, y + taille)) # Prend juste une tile de l'image du modèle
+                pixels = partie_img.load()
+                for u in range(partie_img.width):
+                    for v in range(partie_img.height):
+                        if pixels[u, v][3] == 254: # pyright: ignore[reportOptionalSubscript, reportIndexIssue]
+                            pixels[u, v] = (0, 0, 0, 0) # pyright: ignore[reportOptionalSubscript]
                 images_tiles.append((partie_img, tile_x, tile_y, nb, get_name(fichier_mdl))) # L'ajoute à la liste
                 tile_y += 1 # Met à jour les coordonnées de la tuile
             tile_x += 1
@@ -80,7 +86,6 @@ def map_create(noms_fichiers_mdl:list[str], nom_fichier:str, root: tk.Tk | None=
     root.title("Création de tilemaps") # Définir le titre de la fenètre
     root.geometry("1000x650") # Définir la taille de la fenètre
     root.configure(bg= BG) # Mettre un background
-    # Permet d'équilibrer la fenètre pour ne pas avoir un élément qui prend plus de place qu'un autre.
 
     tk.Label(root, text=f"Créez votre fichier {get_name(nom_fichier)} avec les éléments que vous avez demandé", font=('Arial', 15, 'bold'), bg=BG, fg=COULEUR_ECRITURE).pack()
 
@@ -92,8 +97,6 @@ def map_create(noms_fichiers_mdl:list[str], nom_fichier:str, root: tk.Tk | None=
     selector = Selecteur(root)
 
     dessinateur = Dessinateur(frame_principale, selector)
-
-    root.bind("<Control-z>", dessinateur.annuler)
 
     for i, images in enumerate(liste_tiles):
         tk.Label(root, text=f"Voici le contenu du fichier {get_name(noms_fichiers_mdl[i])}", font=("Arial", 9, "bold"), bg=BG, fg=COULEUR_ECRITURE).pack()
@@ -108,11 +111,11 @@ def map_create(noms_fichiers_mdl:list[str], nom_fichier:str, root: tk.Tk | None=
         for i, elements in enumerate(images):
             img, tile_x, tile_y, nb, nom = elements
 
-            img_taille = img.resize((50, 50), Image_PIL.NEAREST) # pyright: ignore[reportAttributeAccessIssue]
-
+            img_taille = img.resize((50, 50), Image_PIL.Resampling.NEAREST)
+            
             photo = ImageTk.PhotoImage(img_taille)
 
-            canva.create_image(debut + i*decallage, 0, anchor=tk.NW, image= photo, tags=f"{nom}{i}")
+            canva.create_image(debut + i*decallage, 0, anchor=tk.NW, image= photo, tags=f"{nom}{i:02d}")
 
             if tile_x == 0:
                 x_position = "gauche"
@@ -178,7 +181,12 @@ def map_modif(nom_fichier:str, root: tk.Tk | None=None):
             tile_y = 0
             for y in range(0, image.height, taille):
                 partie_img = image.crop((x, y, x + taille, y + taille)) # Prend juste une tile de l'image du modèle
-                images_tiles.append((partie_img, tile_x, tile_y, nb, fichier_mdl)) # L'ajoute à la liste
+                pixels = partie_img.load()
+                for u in range(partie_img.width):
+                    for v in range(partie_img.height):
+                        if pixels[u, v][3] == 254: # pyright: ignore[reportOptionalSubscript, reportIndexIssue]
+                            pixels[u, v] = (0, 0, 0, 0) # pyright: ignore[reportOptionalSubscript]
+                images_tiles.append((partie_img, tile_x, tile_y, nb, get_name(fichier_mdl))) # L'ajoute à la liste
                 tile_y += 1 # Met à jour les coordonnées de la tuile
             tile_x += 1
         liste_tiles.append(images_tiles)
@@ -219,7 +227,7 @@ def map_modif(nom_fichier:str, root: tk.Tk | None=None):
 
             photo = ImageTk.PhotoImage(img_taille)
 
-            canva.create_image(debut + i*decallage, 0, anchor=tk.NW, image= photo, tags=f"{nom}{i}")
+            canva.create_image(debut + i*decallage, 0, anchor=tk.NW, image= photo, tags=f"{nom}{i:02d}")
 
             if tile_x == 0:
                 x_position = "gauche"

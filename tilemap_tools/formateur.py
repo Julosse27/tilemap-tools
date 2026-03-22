@@ -11,7 +11,7 @@ from typing import Literal
 # PNG_FIN = b"IEND\xae\x42\x60\x82"
 FICHIER_MDL = ["image", "taille", "nb_tiles", "couleurs"]
 FICHIER_MAP = ["image", "fichiers", "modifs"]
-VERIFICATION: dict[str, type|list[type]] = {"image": str, "taille": int, "nb_tiles": int, "couleurs": str, "fichiers": [list, str], "modifs": [list, tuple, bytes, str, int, int]}
+VERIFICATION: dict[str, type|list[type]] = {"image": str, "taille": int, "nb_tiles": int, "couleurs": [list, str], "fichiers": [list, str], "modifs": [list, tuple, bytes, str, int, int]}
 
 class Fichier:
     _type_fichier: Literal['.mdl', ".map"]
@@ -62,9 +62,9 @@ class Fichier:
         return self._couleurs
     
     @couleurs.setter
-    def couleurs(self, couleurs:str):
+    def couleurs(self, couleurs:list[str]):
         self.verif()
-        self._couleurs = couleurs.splitlines()
+        self._couleurs = couleurs
     
     _taille: int
     @property
@@ -233,7 +233,7 @@ def decode(chemin:str):
             elements["image"] = b",,".join(liste[:-3])
             elements["taille"] = int(liste[-3])
             elements["nb_tiles"] = int(liste[-2])
-            elements["couleurs"] = liste[-1].decode()
+            elements["couleurs"] = liste[-1].decode().splitlines()
     
         with open(fichier_temp, "wb") as d:
             d.write(elements["image"])

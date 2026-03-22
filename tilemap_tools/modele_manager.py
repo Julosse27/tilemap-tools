@@ -7,13 +7,13 @@ from pyxel import load, init, images, colors as col, Image, save, load_pal, quit
 from PIL import Image as Image_PIL, ImageTk, ImageDraw
 import tkinter as tk
 from .formateur import encode, decode, generate_temp
-from .commun import Dessinateur, Selecteur
+from .commun import Dessinateur, Selecteur, BASE_COLORS, get_name, image_vide
+
+BG = "#6835c7"
 
 class Modele_Viewer:
     def __init__(self, root: tk.Tk, image: Image_PIL.Image, nb_tiles, nom_fichier):
         self.nb_tiles = nb_tiles
-
-        bg = "#6835c7"
 
         # Charger l'image
         self.original_image = image
@@ -27,10 +27,10 @@ class Modele_Viewer:
         # Convertir pour Tkinter
         self.photo = ImageTk.PhotoImage(self.display_image)
 
-        frame = tk.Frame(root, bg=bg)
+        frame = tk.Frame(root, bg=BG)
         frame.pack(fill=tk.BOTH, expand= True)
 
-        tk.Label(frame, text= f"Voici le contenu du modèle\n{nom_fichier}.mdl", font=("Arial", 20, "bold"), bg=bg).pack()
+        tk.Label(frame, text= f"Voici le contenu du modèle\n{nom_fichier}", font=("Arial", 20, "bold"), bg=BG).pack()
         
         # Canvas
         self.canvas = tk.Canvas(
@@ -45,7 +45,7 @@ class Modele_Viewer:
         self.canvas.create_image(128, 128, anchor=tk.CENTER, image=self.photo)
         
         # Info label
-        self.info_label = tk.Label(frame, text="Cliquez sur une tuile\n", font=("Arial", 19), pady= 30, bg=bg)
+        self.info_label = tk.Label(frame, text="Cliquez sur une tuile\n", font=("Arial", 19), pady= 30, bg=BG)
         self.info_label.pack()
         
         # Événement de clic
@@ -151,146 +151,154 @@ def mdl_view(chemin_fichier:str, root: tk.Tk | None=None):
 
     root.mainloop()
 
-def mdl_create(taille:int, nb_tiles:int, chemin_fichier:str, colors: None | list[str]): # pyright: ignore[reportRedeclaration]
-    print()
-    print(f"""Vous devez créer un modèle pour tilemap:
-            - Le carré sera découpé en {nb_tiles**2} (les 4 coins, les {4 if nb_tiles == 3 else 8} cotés et {"le" if nb_tiles == 3 else "les 4"} milieu{'' if nb_tiles == 3 else "x"}) de {taille} de cotés chacun 
-              pour constituer la base pour une future tilemap.
-            - Après avoir créé votre modèle complet pensez à l'enregistrer puis fermer la fenètre.
-            - Le programme s'occupera de faire le reste pour vous et de l'enregistrer au nom que
-              vous avez choisit.""")
-    print()
-    
-    sleep(1)
-
-    init(0, 0)
-
-    nom_fichier_res = generate_temp()
-
-    if colors is None:
-        colors: list[str] = []
-        for color in col.to_list():
-            colors.append(hex(color)[2:])
+def mdl_create(taille:int, nb_tiles:int, chemin_fichier:str, colors: None | list[str], root:tk.Tk | None = None): # pyright: ignore[reportRedeclaration]
+    if colors == None:
+        colors = BASE_COLORS
     else:
-        colors.insert(0, '0')
-        open(nom_fichier_res + ".pyxpal", "w").write("\n".join(map(str, colors)))
+        if len(colors) > 32 or len(colors) == 0:
+            raise ValueError("L'argument colors n'est pas valide.")
+    if root == None:
+        root = tk.Tk() # Créer une fenètre avec tkinter
+    else:
+        root.deiconify()
 
-    colors = "\n".join(colors) # pyright: ignore[reportAssignmentType]
+    root.title("Création de modele") # Définir le titre de la fenètre
+    root.geometry("1000x650") # Définir la taille de la fenètre
+    root.configure(bg= BG) # Mettre un background
 
-    tentative = 0
-    ok = False
-    while not ok:
-        run(["pyxel", "edit", nom_fichier_res])
+    tk.Label(root, text=f"Créez votre fichier {get_name(chemin_fichier)} avec les éléments que vous avez demandé", font=('Arial', 15, 'bold'), bg=BG).pack()
 
-        try:
-            load(f'{nom_fichier_res}.pyxres')
-            img = images[0]
-            tilemap: list[list[int]] = []
-            nb_0 = 0
-            for x in range(taille * nb_tiles):
-                ligne:list[int] = []
-                for y in range(taille * nb_tiles):
-                    ligne.append(img.pget(x, y))
-                    nb_0 += 1 if img.pget(x, y) == 0 else 0
-                tilemap.append(ligne)
-            if nb_0 != (taille * nb_tiles) ** 2:
-                ok = True
-            else:
-                if tentative <= 10:
-                    print()
-                    print(f"Tentative numéro {tentative} dans 1 seconde.")
-                    tentative += 1
-                else:
-                    if exists(nom_fichier_res + ".pyxres"):
-                        remove(fr"{nom_fichier_res}.pyxres")
-                    if exists(nom_fichier_res + ".pyxpal"):
-                        remove(fr"{nom_fichier_res}.pyxpal")
-                    px_quit()
-                continue
-            
-        except Exception as e:
-            ok = False
-            print()
-            print("Il y à eu un problème avec le fichier, pensez à l'enregistrer avant de le fermer.")
-            print(f"Erreur : {e}")
-            if tentative <= 10:
-                print(f"Tentative numéro {tentative} dans 1 seconde.")
-                tentative += 1
-                sleep(1)
-            else:
-                remove(fr"{nom_fichier_res}.pyxres")
-                if exists(nom_fichier_res + ".pyxpal"):
-                    remove(fr"{nom_fichier_res}.pyxpal")
-                return
-    test = Image(taille * nb_tiles, taille * nb_tiles)
-    test.blt(0, 0, 0, 0, 0, taille * nb_tiles, taille * nb_tiles)
-    test.save(nom_fichier_res + ".png", 1)
+    frame_principale = tk.Frame(root, width=1000, height=271, bg=BG)
+    frame_principale.pack()
 
-    remove(fr"{nom_fichier_res}.pyxres")
-    if exists(nom_fichier_res + ".pyxpal"):
-        remove(fr"{nom_fichier_res}.pyxpal")
+    tk.Label(frame_principale, text=f"Cette image sera ce que contiendra le fichier\n{get_name(chemin_fichier)} lors de son enregistrement.\nSélectionez des couleurs puis placez les sur cette fenètre\npour le construire.", font=('Arial', 15), bg=BG, justify=tk.CENTER).place(relx=0.7,rely=0.5, anchor=tk.CENTER)
 
-    encode(chemin_fichier, taille=taille, nb_tiles=nb_tiles, image=nom_fichier_res+".png", couleurs=colors)
+    selector = Selecteur(root)
+
+    ratio = 4
+    if taille*nb_tiles*4 < 256:
+        ratio = 256//(taille*nb_tiles)
+
+    dessinateur = Dessinateur(frame_principale, selector, image_base= image_vide(taille * nb_tiles), ratio=ratio)
+    dessinateur.toggle_sauvegarde(False)
+
+    for x in range(taille*ratio, taille*nb_tiles*ratio, taille*ratio):
+        dessinateur.canva.create_line(x, 0, x, taille*nb_tiles*ratio, fill="#000000")
+        dessinateur.canva.create_line(0, x, taille*nb_tiles*ratio, x, fill="#000000")
+
+    if len(colors) <= 16:
+        liste_gr_colors = [colors]
+    else:
+        liste_gr_colors = [colors[:16], colors[16:]]
+
+    for colors_gr in liste_gr_colors:
+        canva = tk.Canvas(root, bg=BG, height= 90, width= 1000, highlightthickness=0, bd=0)
+
+        decallage = 62
+        longeur_ligne = 50 + decallage*(len(colors_gr) - 1)
+        debut = 500 - (longeur_ligne // 2)
+
+        canva.photos_list = getattr(canva, 'photos_list', []) # pyright: ignore[reportAttributeAccessIssue]
+        canva.img_list = getattr(canva, 'img_list', []) # pyright: ignore[reportAttributeAccessIssue]
+        for i, color in enumerate(colors_gr):
+            img = Image_PIL.new("RGB", (1, 1),"#" + color)
+
+            img_taille = img.resize((50, 50), Image_PIL.Resampling.NEAREST)
+                        
+            photo = ImageTk.PhotoImage(img_taille)
+
+            canva.create_image(debut + i*decallage, 0, anchor=tk.NW, image= photo, tags=f"Couleur{i:02d}")
+
+            canva.create_text(debut + i*decallage + 25, 58, anchor=tk.CENTER, text="#" + color.upper(), font=("Arial", 7), justify=tk.CENTER, tags="TEXT")
+
+            canva.photos_list.append(photo) # pyright: ignore[reportAttributeAccessIssue]
+            canva.img_list.append(img) # pyright: ignore[reportAttributeAccessIssue]
+        
+        canva.bind("<B1-Motion>", selector.hover)
+        canva.bind("<Button-1>", selector.click)
+        selector.canvas_list.append(canva)
+        
+        canva.pack()
+
+    root.mainloop()
+    nom_fichier_temp = generate_temp('png')
+    dessinateur.stop_thread()
+    dessinateur.source_img.save(nom_fichier_temp)
+    encode(chemin_fichier, taille=taille, nb_tiles=nb_tiles, image=nom_fichier_temp, couleurs=colors)
 
 def mdl_modif(chemin_fichier:str):
-    nom_fichier_temp = generate_temp()
+    root = tk.Tk()
 
     fichier = decode(chemin_fichier)
 
-    print()
-    print(f"""Ce fichier contient une tilemap:
-          - de {fichier.nb_tiles}x{fichier.nb_tiles} tuiles;
-          - de {fichier.taille} pixels de larges""")
-    print()
+    taille = fichier.taille
+    nb_tiles = fichier.nb_tiles
+    colors = fichier.couleurs
+    img = fichier.image
 
-    open(nom_fichier_temp + ".pyxpal", "w").write("\n".join(fichier.couleurs))
+    root.title("Création de modele") # Définir le titre de la fenètre
+    root.geometry("1000x650") # Définir la taille de la fenètre
+    root.configure(bg= BG) # Mettre un background
 
-    width, height = fichier.image.size
+    tk.Label(root, text=f"Créez votre fichier {get_name(chemin_fichier)} avec les couleurs que vous avez demandé", font=('Arial', 15, 'bold'), bg=BG).pack()
 
-    init(0, 0)
+    frame_principale = tk.Frame(root, width=1000, height=271, bg=BG)
+    frame_principale.pack()
 
-    load_pal(nom_fichier_temp + ".pyxpal")
+    tk.Label(frame_principale, text=f"Cette image sera ce que contiendra le fichier\n{get_name(chemin_fichier)} lors de son enregistrement.\nSélectionez des couleurs puis placez les sur cette fenètre\npour le construire.", font=('Arial', 15), bg=BG, justify=tk.CENTER).place(relx=0.7,rely=0.5, anchor=tk.CENTER)
+
+    selector = Selecteur(root)
+
+    ratio = 4
+    if taille*nb_tiles*4 < 256:
+        ratio = 256//(taille*nb_tiles)
+
+    dessinateur = Dessinateur(frame_principale, selector, image_base= img, ratio=ratio)
+    dessinateur.toggle_sauvegarde(False)
+
+    for x in range(taille*ratio, taille*nb_tiles*ratio, taille*ratio):
+        dessinateur.canva.create_line(x, 0, x, taille*nb_tiles*ratio, fill="#ffffff")
+        dessinateur.canva.create_line(0, x, taille*nb_tiles*ratio, x, fill="#ffffff")
+
+    if len(colors) <= 16:
+        liste_gr_colors = [colors]
+    else:
+        liste_gr_colors = [colors[:16], colors[16:]]
+
+    for colors_gr in liste_gr_colors:
+        canva = tk.Canvas(root, bg=BG, height= 90, width= 1000, highlightthickness=0, bd=0)
+
+        decallage = 62
+        longeur_ligne = 50 + decallage*(len(colors_gr) - 1)
+        debut = 500 - (longeur_ligne // 2)
+
+        canva.photos_list = getattr(canva, 'photos_list', []) # pyright: ignore[reportAttributeAccessIssue]
+        canva.img_list = getattr(canva, 'img_list', []) # pyright: ignore[reportAttributeAccessIssue]
+        for i, color in enumerate(colors_gr):
+            img = Image_PIL.new("RGB", (1, 1),"#" + color)
+
+            img_taille = img.resize((50, 50), Image_PIL.Resampling.NEAREST)
+                        
+            photo = ImageTk.PhotoImage(img_taille)
+
+            canva.create_image(debut + i*decallage, 0, anchor=tk.NW, image= photo, tags=f"Couleur{i:02d}")
+
+            canva.create_text(debut + i*decallage + 25, 58, anchor=tk.CENTER, text="#" + color.upper(), font=("Arial", 7), justify=tk.CENTER, tags="TEXT")
+
+            canva.photos_list.append(photo) # pyright: ignore[reportAttributeAccessIssue]
+            canva.img_list.append(img) # pyright: ignore[reportAttributeAccessIssue]
+        
+        canva.bind("<B1-Motion>", selector.hover)
+        canva.bind("<Button-1>", selector.click)
+        selector.canvas_list.append(canva)
+        
+        canva.pack(pady=10)
+
+    root.mainloop()
+    nom_fichier_temp = generate_temp('png')
+    dessinateur.stop_thread()
+    dessinateur.source_img.save(nom_fichier_temp)
+
+    fichier.close()
     
-    fichier.img_save(nom_fichier_temp)
-
-    images[0].load(0, 0, nom_fichier_temp + ".png")
-
-    remove(nom_fichier_temp + ".png")
-
-    save(nom_fichier_temp + ".pyxres")
-    
-    tentative = 1
-    ok = False
-    if not ok:
-        run(["pyxel", "edit", nom_fichier_temp])
-
-        try:
-            load(nom_fichier_temp + ".pyxres")
-
-            img = images[0]
-
-            tilemap: list[list[int]] = []
-            for x in range(width):
-                ligne = []
-                for y in range(height):
-                    ligne.append(img.pget(x, y))
-                tilemap.append(ligne)
-            ok = True
-        except Exception as e:
-            ok = False
-            print()
-            print("Il y à eu un problème avec le fichier, pensez à l'enregistrer avant de le fermer.")
-            print(f"Erreur : {e}")
-            if tentative <= 11:
-                print("Nouvelle tentative dans 1 seconde.")
-                tentative += 1
-                sleep(1)
-            else:
-                return
-    test = Image(width, height)
-    test.blt(0, 0, 0, 0, 0, width, height)
-    test.save(nom_fichier_temp + ".png", 1)
-    remove(nom_fichier_temp + ".pyxres")
-    remove(nom_fichier_temp + ".pyxpal")
-
-    encode(chemin_fichier, image=nom_fichier_temp + ".png", taille=fichier.taille, nb_tiles=fichier.nb_tiles, couleurs="\n".join(fichier.couleurs))
+    encode(chemin_fichier, taille=taille, nb_tiles=nb_tiles, image=nom_fichier_temp, couleurs=colors)
