@@ -11,37 +11,43 @@ from typing import Literal
 # PNG_FIN = b"IEND\xae\x42\x60\x82"
 FICHIER_MDL = ["image", "taille", "nb_tiles", "couleurs"]
 FICHIER_MAP = ["image", "fichiers", "modifs"]
-VERIFICATION: dict[str, type|list[type]] = {"image": str, "taille": int, "nb_tiles": int, "couleurs": str, "fichiers": [list, str], "modifs": [list, tuple, bytes, str, int, int]}
+VERIFICATION: dict[str, type|list[type]] = {"image": str, "taille": int, "nb_tiles": int, "couleurs": [list, str], "fichiers": [list, str], "modifs": [list, tuple, bytes, str, int, int]}
 
 class Fichier:
     _type_fichier: Literal['.mdl', ".map"]
     @property
     def type_fichier(self):
         """Le type du fichier"""
+        self.verif()
         return self._type_fichier
     
     @type_fichier.setter
     def type_fichier(self, type_f: Literal[".map", ".mdl"]):
+        self.verif()
         self._type_fichier = type_f
 
     _nb_tiles: int
     @property
     def nb_tiles(self):
         """Nombre de tuiles de chaque coté d'un fichier .mdl"""
+        self.verif()
         return self._nb_tiles
 
     @nb_tiles.setter
     def nb_tiles(self, nb:int):
+        self.verif()
         self._nb_tiles = nb
 
     _image: Image.Image
     @property
     def image(self):
         """L'image principale d'un fichier .mdl ou .map"""
+        self.verif()
         return self._image.copy()
     
     @image.setter
     def image(self, chemin:str):
+        self.verif()
         file = Image.open(chemin)
         self._image = file.copy()
         file.close()
@@ -52,36 +58,43 @@ class Fichier:
     @property
     def couleurs(self):
         """La liste des couleurs d'un fichier .mdl"""
+        self.verif()
         return self._couleurs
     
     @couleurs.setter
-    def couleurs(self, couleurs:str):
-        self._couleurs = couleurs.splitlines()
+    def couleurs(self, couleurs:list[str]):
+        self.verif()
+        self._couleurs = couleurs
     
     _taille: int
     @property
     def taille(self):
         """La taille d'une tuile d'un fichier .mdl"""
+        self.verif()
         return self._taille
     
     @taille.setter
     def taille(self, nv_taille:int):
+        self.verif()
         self._taille = nv_taille
     
     _fichiers: list[str]
     @property
     def fichiers(self):
         """La liste du chemin absolu vers les fichiers d'un fichier .map"""
+        self.verif()
         return self._fichiers
     
     @fichiers.setter
     def fichiers(self, files: list[str]):
+        self.verif()
         self._fichiers = files
 
     _modifs: list[tuple[Image.Image, str, int, int]]
     @property
     def modifs(self) -> list[tuple[Image.Image, str, int, int]]:
         """La liste de toutes les modification apportées à ce fichier .map"""
+        self.verif()
         res = []
         for image, nom, x, y in self._modifs:
             res.append((image.copy(), nom, x, y))
@@ -90,6 +103,7 @@ class Fichier:
     
     @modifs.setter
     def modifs(self, file_modifs:list[tuple[bytes, str, int, int]]):
+        self.verif()
         nv_modifs: list[tuple[Image.Image, str, int, int]] = []
         for image, nom, x, y in file_modifs:
             fichier_temp = generate_temp('png')
@@ -103,8 +117,9 @@ class Fichier:
         
         self._modifs = nv_modifs
 
-    def get_raw(self) -> list[tuple[bytes, str, int, int]]:
+    def get_raw_modifs(self) -> list[tuple[bytes, str, int, int]]:
         """Retourne la version brute des modifications (pour fichiers .map)."""
+        self.verif()
         res = []
         for image, nom, x, y in self._modifs:
             nom_fichier = generate_temp('png')
@@ -117,6 +132,9 @@ class Fichier:
 
     def __init__(self, type_fichier:str, elements:dict) -> None:
         _verification(type_fichier, elements)
+
+        self.closed = False
+        
         self.type_fichier = type_fichier # pyright: ignore[reportAttributeAccessIssue]
 
         for key, value in elements.items():
@@ -129,7 +147,15 @@ class Fichier:
             for modif in self._modifs:
                 modif[0].close()
 
+        self.closed = True
+
+    def verif(self):
+        if self.closed:
+            raise ValueError("La connection fichier-programme est fermée.")
+
     def img_save(self, chemin:str):
+        """Sauvegarde l'image sous le format png."""
+        self.verif()
         if self._image:
             self._image.save(chemin + ".png")
 
@@ -207,7 +233,7 @@ def decode(chemin:str):
             elements["image"] = b",,".join(liste[:-3])
             elements["taille"] = int(liste[-3])
             elements["nb_tiles"] = int(liste[-2])
-            elements["couleurs"] = liste[-1].decode()
+            elements["couleurs"] = liste[-1].decode().splitlines()
     
         with open(fichier_temp, "wb") as d:
             d.write(elements["image"])
