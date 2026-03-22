@@ -37,29 +37,6 @@ def new_init(width: int, height: int, *, title: str | None = None, fps: int | No
 
 px.init = new_init
 
-def open(chemin: str):
-    """
-    Cette fonction ouvre un fichier `.map` ou `.mdl` et vous retourne la classe qui lui est associée.
-
-    :arg chemin: Le chemin jusqu'au fichier que vous voulez ouvrir.
-    :type chemin: str
-
-    :return: Contenu du fichier
-    :rtype: `~.Tilemap` | `~.Modele`
-    """
-    if isfile(abspath(chemin)):
-        if splitext(chemin)[1] == ".mdl":
-            rep = Modele(chemin)
-        elif splitext(chemin)[1] == ".map":
-            rep = Tilemap(chemin)
-        else:
-            raise ValueError("Le chemin n'est pas valide.")
-    else:
-        raise ValueError("Le chemin n'est pas valide.")
-
-    return rep
-
-
 class Tilemap:
     """
     Celle classe regroupe tout les différents fonctionnements que peut avoir un fichier tilemap.
