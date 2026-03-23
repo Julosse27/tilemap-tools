@@ -144,7 +144,7 @@ class Tilemap:
             for y in range(img_fichier.height):
                 rouge, vert, bleu, alpha = pixels[x, y]  # pyright: ignore[reportGeneralTypeIssues, reportOptionalSubscript]
                 
-                if alpha == 254: # pyright: ignore[reportIndexIssue]
+                if alpha != 255: # pyright: ignore[reportIndexIssue]
                     self.__image_px.pset(x, y, COULEUR_TRANSPARENTE)
                 else:
                     code_couleur = f"{hex(rouge)[2:]:02}{hex(vert)[2:]:02}{hex(bleu)[2:]:02}"
