@@ -186,9 +186,8 @@ class Dessinateur:
         self.selector = selector
         bg = frame.cget("bg")
         self.callback = None
-
-        self.variations_toggle = True
-        self._stop_thread = False
+        
+        self._variations_toggle = False
 
         self.dernier_click = None
 
@@ -310,26 +309,23 @@ class Dessinateur:
                 self.upd_img()
 
     def variation_alpha(self):
-        if self._stop_thread:
+        if self._variations_toggle:
             return
+        
+        if self.alpha <= self._limites["bas"]:
+            self._sens_alpha = 2
+        elif self.alpha >= self._limites["haut"]:
+            self._sens_alpha = -2
+        
+        self.alpha += self._sens_alpha
 
-        if self.variations_toggle:
-            if self.alpha <= self._limites["bas"]:
-                self._sens_alpha = 2
-            elif self.alpha >= self._limites["haut"]:
-                self._sens_alpha = -2
-            
-            self.alpha += self._sens_alpha
+        if self.tile_img != None:
+            self.tile_img.putalpha(self.alpha)
 
-            if self.tile_img != None:
-                self.tile_img.putalpha(self.alpha)
+            photo = ImageTk.PhotoImage(self.tile_img)
 
-                photo = ImageTk.PhotoImage(self.tile_img)
-
-                self.canva.itemconfig("fantome", image=photo)
-                self.canva.image_apercu = photo # pyright: ignore[reportAttributeAccessIssue]
-        else:
-            self.alpha = 132
+            self.canva.itemconfig("fantome", image=photo)
+            self.canva.image_apercu = photo # pyright: ignore[reportAttributeAccessIssue]
                 
         self.canva.after(33, self.variation_alpha)
 
@@ -361,7 +357,7 @@ class Dessinateur:
         self.canva.image_apercu = photo # pyright: ignore[reportAttributeAccessIssue]
 
     def stop_thread(self):
-        self._stop_thread = True
+        self._variations_toggle = True
 
     def hover(self, event:tk.Event):
         if self.selector != None:

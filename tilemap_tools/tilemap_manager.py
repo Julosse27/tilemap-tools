@@ -25,6 +25,7 @@ def map_view(nom_fichier:str, root: tk.Tk | None=None):
 
     dessinateur = Dessinateur(frame, image_base=fichier.image)
     dessinateur.set_cursor("target")
+    dessinateur.stop_thread()
 
     text = tk.StringVar(root, "Vous n'avez pas encore cliqué sur une tuile.")
 
