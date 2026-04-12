@@ -15,9 +15,9 @@ def image_vide(taille:int = 512):
         for x in range(taille):
             # Damier alterné
             if (x + y) % 2 == 0:
-                pixels[x, y] = (192, 192, 192, 254) # pyright: ignore[reportOptionalSubscript]
+                pixels[x, y] = (192, 192, 192, 0) # pyright: ignore[reportOptionalSubscript]
             else:
-                pixels[x, y] = (255, 255, 255, 254) # pyright: ignore[reportOptionalSubscript]
+                pixels[x, y] = (255, 255, 255, 0) # pyright: ignore[reportOptionalSubscript]
 
     return img
 
@@ -43,7 +43,7 @@ def generate_temp(extension:str|None = None):
         nom += "." + extension
     return nom
 
-def is_init():
+def is_px_init():
     """
     Permet de savoir si une fenètre `pyxel`est active.
 
@@ -134,7 +134,7 @@ def get_color(color_code:str):
         L'index de cette couleur (présente avant l'exécution de ce programme ou non)
         dans le répertoire de pyxel.
     """
-    if is_init():
+    if is_px_init():
         color = []
         for col in px.colors.to_list():
             color.append(hex(col)[2:])
@@ -161,12 +161,14 @@ def add_color(color_code:str):
     Rajoute une couleur à pyxel sans vérifier si elle existe déjà.
     """
     color_code = color_code.lower()
-    if is_init():
+    if is_px_init():
         index = len(px.colors)
         px.colors.from_list(px.colors.to_list() + [int(color_code, 16)])
     else:
-        with open(FICHIER_COLORS, "a+r") as f:
+        with open(FICHIER_COLORS, "r") as f:
             index = len(f.read().splitlines())
+
+        with open(FICHIER_COLORS, "a") as f:
             f.write("\n" + color_code)
 
     return index
@@ -186,9 +188,8 @@ class Dessinateur:
         self.selector = selector
         bg = frame.cget("bg")
         self.callback = None
-
-        self.variations_toggle = True
-        self._stop_thread = False
+        
+        self._variations_toggle = False
 
         self.dernier_click = None
 
@@ -303,33 +304,30 @@ class Dessinateur:
 
                     os.remove(nom_fichier_temp)
                 
-                self.source_img.paste(tuile, (x, y))
+                self.source_img.paste(tuile, (x, y), tuile)
                 
                 self.list_modifs.append(self.source_img.copy())
 
                 self.upd_img()
 
     def variation_alpha(self):
-        if self._stop_thread:
+        if self._variations_toggle:
             return
+        
+        if self.alpha <= self._limites["bas"]:
+            self._sens_alpha = 2
+        elif self.alpha >= self._limites["haut"]:
+            self._sens_alpha = -2
+        
+        self.alpha += self._sens_alpha
 
-        if self.variations_toggle:
-            if self.alpha <= self._limites["bas"]:
-                self._sens_alpha = 2
-            elif self.alpha >= self._limites["haut"]:
-                self._sens_alpha = -2
-            
-            self.alpha += self._sens_alpha
+        if self.tile_img != None:
+            self.tile_img.putalpha(self.alpha)
 
-            if self.tile_img != None:
-                self.tile_img.putalpha(self.alpha)
+            photo = ImageTk.PhotoImage(self.tile_img)
 
-                photo = ImageTk.PhotoImage(self.tile_img)
-
-                self.canva.itemconfig("fantome", image=photo)
-                self.canva.image_apercu = photo # pyright: ignore[reportAttributeAccessIssue]
-        else:
-            self.alpha = 132
+            self.canva.itemconfig("fantome", image=photo)
+            self.canva.image_apercu = photo # pyright: ignore[reportAttributeAccessIssue]
                 
         self.canva.after(33, self.variation_alpha)
 
@@ -361,7 +359,7 @@ class Dessinateur:
         self.canva.image_apercu = photo # pyright: ignore[reportAttributeAccessIssue]
 
     def stop_thread(self):
-        self._stop_thread = True
+        self._variations_toggle = True
 
     def hover(self, event:tk.Event):
         if self.selector != None:

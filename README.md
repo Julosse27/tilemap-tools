@@ -44,7 +44,7 @@ Cette commande demande 2 argument obligatoires:
 Mais elle à aussi plusieurs arguments optionels:
 - L'argument `--nb-tuiles` (ou `-n`): le nombre de tuiles que contiendra le fichier. Cela permettra d'avoir plus de choix lors de la création d'un fichier tilemap avec ce fichier.
 
-- Et enfin, l'argument `--couleurs` (ou `-c`): toutes les couleurs qui seront utilisées pour créer ce modèle. Après avoir utilisé cet argument vous devez spécifier un ou plusieurs code exadécimaux correspondant aux couleurs que vous voulez utiliser. Vous pouvez utiliser au maximum 16 couleurs différentes (dont le noir imposé) et au minimum 1 couleur.
+- Et enfin, l'argument `--couleurs` (ou `-c`): Pour construire ce modèle vous pouvez utiliser n'importe quelle couleur, c'est dans ce paramètre que vous devrez spécifier lesquelles. Après avoir mentioné cet argument vous devez spécifier un ou plusieurs code exadécimaux correspondant aux couleurs que vous voulez utiliser. Vous pouvez utiliser de 1 à 32 couleurs différentes pour un seul modèle !!!
 
 #### Exemples
 ```bash
