@@ -15,9 +15,9 @@ def image_vide(taille:int = 512):
         for x in range(taille):
             # Damier alterné
             if (x + y) % 2 == 0:
-                pixels[x, y] = (192, 192, 192, 254) # pyright: ignore[reportOptionalSubscript]
+                pixels[x, y] = (192, 192, 192, 0) # pyright: ignore[reportOptionalSubscript]
             else:
-                pixels[x, y] = (255, 255, 255, 254) # pyright: ignore[reportOptionalSubscript]
+                pixels[x, y] = (255, 255, 255, 0) # pyright: ignore[reportOptionalSubscript]
 
     return img
 
@@ -43,7 +43,7 @@ def generate_temp(extension:str|None = None):
         nom += "." + extension
     return nom
 
-def is_init():
+def is_px_init():
     """
     Permet de savoir si une fenètre `pyxel`est active.
 
@@ -134,7 +134,7 @@ def get_color(color_code:str):
         L'index de cette couleur (présente avant l'exécution de ce programme ou non)
         dans le répertoire de pyxel.
     """
-    if is_init():
+    if is_px_init():
         color = []
         for col in px.colors.to_list():
             color.append(hex(col)[2:])
@@ -161,12 +161,14 @@ def add_color(color_code:str):
     Rajoute une couleur à pyxel sans vérifier si elle existe déjà.
     """
     color_code = color_code.lower()
-    if is_init():
+    if is_px_init():
         index = len(px.colors)
         px.colors.from_list(px.colors.to_list() + [int(color_code, 16)])
     else:
-        with open(FICHIER_COLORS, "a+r") as f:
+        with open(FICHIER_COLORS, "r") as f:
             index = len(f.read().splitlines())
+
+        with open(FICHIER_COLORS, "a") as f:
             f.write("\n" + color_code)
 
     return index
@@ -302,7 +304,7 @@ class Dessinateur:
 
                     os.remove(nom_fichier_temp)
                 
-                self.source_img.paste(tuile, (x, y))
+                self.source_img.paste(tuile, (x, y), tuile)
                 
                 self.list_modifs.append(self.source_img.copy())
 
