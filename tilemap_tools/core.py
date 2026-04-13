@@ -189,19 +189,18 @@ class Animation:
     L'`index` de cette animation dans les animations de l'élément parent.
     """
     
-    def __init__(self, type_anim:Literal["idle", 'action'], *, temps_anim:int | tuple[int, ...] | None = None, images:tuple[Texture, ...] | None = None, touche:int | None = None, callback:Callable[..., None] | None = None) -> None:
+    def __init__(self, type_anim:Literal["idle", 'action'], *, temps_anim:int | list[int] | None = None, images:list[Texture] | None = None, touche:int | None = None, callback:Callable[..., None] | None = None) -> None:
         self.type_anim = type_anim
         if type_anim == "idle":
-            assert type(temps_anim) == int or type(temps_anim) == tuple, "Le paramètre temps_anim est obligatoire pour l'animation de type idle."
-            assert type(images) == tuple, "Le paramètre images est obligatoire pour l'animation de type idle."
-            if type(temps_anim) == tuple:
+            assert type(temps_anim) == int or type(temps_anim) == list, "Le paramètre temps_anim est obligatoire pour l'animation de type idle."
+            assert type(images) == list, "Le paramètre images est obligatoire pour l'animation de type idle."
+            if type(temps_anim) == list:
                 assert len(temps_anim) == len(images), "La spécification du temps doit se faire entre chaque stades de l'animation."
-                self.anim_time = [temps_anim[i] for i in range(len(temps_anim))]
+                self.anim_time = temps_anim
             elif type(temps_anim) == int:
                 self.anim_time = [temps_anim for _ in range(len(images))]
-                print(self.anim_time)
             
-            self.anim_imgs = list(images)
+            self.anim_imgs = images
             
             self.dernier_ch = 0.0
             self.statut_anim = 0
@@ -303,7 +302,7 @@ class Element:
         self.anim_types: dict[Literal["idle", "action"], list[int]] = {"idle": [], "action": []}
         self.idle_active:int = -1
 
-    def add_animation(self, type_anim:Literal["idle", "action"], *, temps_anim:int | tuple[int, ...] | None = None, images:tuple[tuple[int, int], ...] | None = None, touche:int|None = None, callback: Callable[..., None] | None = None):
+    def add_animation(self, type_anim:Literal["idle", "action"], *, temps_anim:int | list[int] | None = None, images:list[tuple[int, int]] | None = None, touche:int|None = None, callback: Callable[..., None] | None = None):
         """
         Cette méthode créé une animation qui fera s'afficher cet élément.
 
@@ -331,8 +330,8 @@ class Element:
         ~.Animation
             Cette méthode retourne l'objet correspondant à l'animation que vous venez de créer.
         """
-        assert type(temps_anim) in (int, tuple), "Le paramètre temps_anim n'est pas valide, il est nécessaire pour l'animation de type action ou idle."
-        assert type(images) == tuple, "Le paramètre images n'est pas valide, il est nécessaire pour l'animation de type action ou idle."
+        assert type(temps_anim) in (int, list), "Le paramètre temps_anim n'est pas valide, il est nécessaire pour l'animation de type action ou idle."
+        assert type(images) == list, "Le paramètre images n'est pas valide, il est nécessaire pour l'animation de type action ou idle."
         for x_y in images:
             assert type(x_y) == tuple and len(x_y) == 2, "Le paramètre images n'est pas valide, il est nécessaire pour l'animation de type action ou idle."
         if type_anim == "action":
@@ -350,7 +349,7 @@ class Element:
             texture.master_elt = self
 
             list_textures.append(texture)
-        list_textures = tuple(list_textures)
+        list_textures = list_textures
 
         animation = Animation(type_anim, temps_anim = temps_anim, images = list_textures, touche = touche, callback = callback)
         animation.master_elt = self
@@ -380,8 +379,10 @@ class Element:
         if type(index) == Animation:
             if self.anims.count(index) != 0 and self.anims.index(index) in self.anim_types["idle"]:
                 self.idle_active = self.anims.index(index)
-        else:
-            self.idle_active = index # pyright: ignore[reportAttributeAccessIssue]
+            else:
+                raise ValueError("Cette animation ne fait pas partit des animation de cet élément.")
+        elif type(index) == int:
+            self.idle_active = self.anim_types["idle"][index]
 
     def change_x(self, x: int):
         """
@@ -445,7 +446,7 @@ class Element:
         
         return False
 
-    def pos_in_hitbox(self, x, y):
+    def position_in_hitbox(self, x, y):
         """
         Vérifie si la position donné fait partie de l'hitbox de cet objet.
 
@@ -463,7 +464,7 @@ class Element:
         """
         try:
             if type(self.hit_box) == dict:
-                rep = self.hit_box[x][y]
+                rep = self.hit_box[x - self.decallage_x][y - self.decallage_y]
             else:
                 rep = False
         except:
