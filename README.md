@@ -1,6 +1,11 @@
 # Tilemap Tools
 
-<font size=4> Outils python permettant de faciliter l'utilisation de modèles et de tilemap avec le module `pyxel`. </font>
+
+
+<font size=4> Outil python permettant de faciliter l'utilisation de modèles avec le module `pyxel`. 
+
+[REDME in others languages](https://github.com/Julosse27/tilemap-tools/tree/main/Information)
+</font>
 
 ---
 ## Installation
@@ -13,12 +18,12 @@ pip install tilemap-tools
 
 <font size=3>
 
- - ✨ Créer des modèles de tilemaps interactifs.
- - 🎨 Des palettes max de 16 couleurs pour un modèle.
- - 👁️ Visualisation et modification avec des grilles interactives
- - 👾 Création de tilemaps avec un systrème complet de création de platformes ou de modèles tierces
- - 👨‍💻 Utilisation facile dans un programme utilisant le module pyxel ([documentation en français](https://kitao.github.io/pyxel/web/user-guide/))
+ - ✨ Créer des modèles de tilemaps interactifs en pixels art.
+ - 🎨 Des palettes max de 32 couleurs pour un modèle.
+ - 👁️ Visualisation et modification avec des grilles interactives.
  - 💻 Modification à tout moment
+ - 👾 Création de tilemaps avec un systrème complet de création de platformes ou de modèles tierces.
+ - 👨‍💻 Utilisation facile dans un programme utilisant le module pyxel ([documentation](https://kitao.github.io/pyxel/web/user-guide/))
 
  </font>
 
@@ -92,12 +97,12 @@ Ce module étant encore en développement, je laisse à disposition cette comman
 tilemap clear
 ```
 
-### **Intégration dans un programme**
+## **Intégration dans un programme**
 
-#### **L'objet `~.Modele` et `~.Tilemap`**
-Le gros point fort de ce module est encore de permettre de pouvoir afficher ce que vous venez de créer. Pour cela vous pouvez à tout moment importer `tilemap-tools`dans votre programme ce qui vous permetra d'accéder à 2 objets (`~.Modele` et `~.Tilemap`).
+### **L'objet `~.Modele` et `~.Tilemap`**
+Après avoir créé des fichier il faut pouvoir les modifiers. C'est à quoi servent ces 2 fichier qui vous permettent de faire un lien entre le fichier que vous venez de créer et votre programme.
 
-Ces objets représentent le lien entre le programme et le fichier vous pouvez en créer un très simplement:
+Tant que vous connaissez le chemin jusqu'a votre fichier vous n'avez besoin que d'une ligne pour en créer un :
 ```python
 from tilemap-tools import Modele, Tilemap
 
@@ -106,7 +111,7 @@ modele = Modele("C:\\chemin\\vers\\votre\\fichier.mdl")
 tilemap = Tilemap("mon_fichier.map")
 ```
 
-Avec ces objets vous pouvez faire plusieur chose comme en créer un:
+Vous pouvez directement créer un nouveau fichier avec `Modele.create` ou `Tilemap.create`.
 
 ```python
 from tilemap-tools import Modele, Tilemap
@@ -116,10 +121,8 @@ modele = Modele.create(taille=3, nb_tiles=3, couleurs=["ffffff", "f33aaa"])
 # ou pour créer un nouveau fichier tilemap
 tilemap = Tilemap.create("mon_fichier.mdl", modele)
 ```
-Vous pouvez remarquer que pour créer un fichier `tilemap` on peut utiliser soit un chemin jusqu'a un fichier (absolu ou relatif) ou un objet `~.Modele`.
 
-Vous pouvez aussi avec ces objets les modifiers ou les visualiser à la manières des commandes:
-
+Mais vous pouvez aussi les modifier ou les visualiser directement dans votre programme.
 ```python
 from tilemap-tools import Modele
 
@@ -132,27 +135,74 @@ modele.view()
 # bien sur cela marche de la même façon pour l'objet tilemap
 ```
 
-De plus l'objet `~.Tilemap` présente un autre avantage, l'intégration dans un programme avec le module `pyxel` vous permet d'utiliser sa méthode `.draw()` qui vous permet d'afficher une partie de ce fichier sur votre fenètre de jeu.
+### **L'objet `~.Element`**
+La première partie de l'intégration était concentré sur refaire ce que ce module faisait déjà dans un programme python.
+
+Cette seconde partie met en place un système complet pour pouvoir afficher ce que vous venez de créer et l'animer dans un programme avec `pyxel`
+
+Vous pouvez le créer de 2 façons:
 ```python
-from tilemap_tools import Modele, Tilemap
-import pyxel
+from tilemap_tools import Tilemap, Element
 
-tilemap = Tilemap("perso.map")
+# Il faut d'abord dans tout les cas créer un lien
+# avec un fichier tilemap (pour avoir le modèle)
+tilemap = Tilemap("mon_fichier_tilemap.map")
 
-pyxel.init(100, 100)
-def update():
-    global x
-    x = 10 if pyxel.frame_count % 10 <= 5 else 20
-
-def draw():
-    y = 0
-    tilemap.draw(x, y, 0, 0, 10, 10)
-
-pyxel.run(update, draw)
+# Ensuite soit vous utilisez la méthode Tilemap.create_element
+element1 = tilemap.create_element(
+    10, 10, # Les coordonnées x-y ou il doit être affiché.
+    9, 12, # La taille (largeur puis heuteur) des modèles sur la tilemap.
+    2 # Un multiplicateur qui permet d'agrandir la taille d'un modèle à l'affichage
+    # Il faut faire attention avec ce dernier car il peut modifier le modèle
+)
+# Vous pouvez le créer aussi comme ça:
+element2 = Element(
+    10, 10,
+    9, 12,
+    2,
+    tilemap # Pour fonctionner il à besoin de savoir d'où récupérer les modèles.
+)
 ```
 
-#### **Pour un petit plus**
-En plus de ces objets ce module met à disposition une fonction qui permet de récupérer le numéro d'une couleur dans la palette `pyxel` et une autre permettant de savoir si pyxel est initialisé ou non.
+Après l'avoir créé vous pouvez l'animer avec sa méthode `Element.add_animation`
+Vous pouvez en créer de plusieurs type et chacune d'entre elle à ses spécialitées :
+* L'animation `idle` permet de créer un roulement de plusieurs modèles à un rythme précis en boucle. Pour chaque modèle que vous voudrez ajouter les cordonnées d'où vous voulez le récupérer (coordonnées x-y sur la tilemap) et le temps à attendre entre chaque stade de l'animation.
+* Il viendra ensuite dans pas longtemps l'animation de type `action` qui comme son nom l'indique se déclenchera à l'apui d'une touche en particulier ou une action prédéfinie (comme l'éxécution d'un fonction). Ce type d'animation est encore en développement.
+```python
+from tilemap_tools import Tilemap
+
+element = Tilemap("fichier.map").create_element(10, 10, 8, 6, 1)
+
+animation_idle = element.add_animation(
+    'idle', # Le permier argument est le type d'animation
+    # Chaque type d'animation à ses propres paramètre et donc certains sont obligatoires
+    images=[(3, 5), (9, 5)] # C'est une liste de tuple avec chaque coordonnées ou les modèles commencent
+    # Dans cet exemple on à 2 images, une qui commence en x = 3 et y = 5 et une autre en x = 9 et y = 5
+    temps_anim=500, # Comme celui-ci qui définit le temps à attendre entre chaque image en milisecondes.
+    # PS: peut être aussi sous la forme d'une liste de temps pour chaque image
+)
+```
+Un élément peut avoir plusieurs animation idle de stockées et peut les interchanger à tout moment avec sa méthode `Element.set_idle`. Pour cela soit vous connaisez l'indice de l'animation que vous voulez activer dans les animation `idle` soit vous avez sous la main sont objet.
+
+```python
+# Ce programme reprend la suite du dernier
+
+# Creation d'une 2eme animation différente
+animation_idle2 = element.add_animation(
+    'idle',
+    images = [(3, 15), (9, 15)]
+    temps_anim = [300, 500] # L'animation restera 300 milisecondes avec la première image puis 500 avec la 2eme
+)
+
+# Vous pouvez activer cette nouvelle animation de 2 façons
+element.set_idle(1) # Active la 2eme animation idle ajouté à l'élément
+# ou
+element.set_idle(animation_idle2)
+```
+Lorsque n'importe quelle animation est activée chaque image à sa propre hitbox, la méthode `element.position_in_hitbox` permet de vérifier si une position unique (comme celle de la souris par exemple) serait dans celle-ci et la méthode `element.compare_hitbox` permet de vérifier si 2 élément se touche.
+
+### **Pour un petit plus**
+Avec tout ces élément le créateur a développé plusieurs outils qu'il met à disposition comme un moyen de savoir si `pyxel` est initialisé avec la fonction `is_px_init`. Mais aussi un moyen de récupérer une couleur en particulier avec la fonction `get_color` ou plus interessant encore pour certain un moyen de savoir exactement depuis combien de temps le jeu est en train de tourner avec  la fonction `get_time`.
 
 ## License
 
@@ -161,3 +211,8 @@ MIT License - voir LICENSE pour plus de détails.
 ## Auteur
 
 Julosse - julosse27110@gmail.com
+
+## Remerciments
+<font size=3>J'espère que ce simple module vous aidera dans la création de vos premiers jeux avec python.
+
+Merci de m'avoir de votre attention et si ce module vous plait pensez à en faire parler autour de vous pour qu'il puisse aider encore d'autre personnes.</font>
