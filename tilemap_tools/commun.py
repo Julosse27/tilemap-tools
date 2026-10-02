@@ -136,7 +136,7 @@ def get_color(color_code:str):
     """
     if is_px_init():
         color = []
-        for col in px.colors.to_list():
+        for col in px.colors:
             color.append(hex(col)[2:])
     else:
         if not isfile(FICHIER_COLORS):
